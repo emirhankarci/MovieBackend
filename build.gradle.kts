@@ -39,6 +39,13 @@ dependencies {
 
     // Spring Security (Şifreleme ve Güvenlik için)
     implementation("org.springframework.boot:spring-boot-starter-security")
+
+    // Flyway (Veritabanı Migration)
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql")
+
+    // Rate Limiting
+    implementation("com.bucket4j:bucket4j-core:8.10.1")
 }
 
 kotlin {
