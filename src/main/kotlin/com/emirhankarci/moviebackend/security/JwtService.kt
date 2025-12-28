@@ -1,5 +1,7 @@
 package com.emirhankarci.moviebackend.security
 
+import io.jsonwebtoken.ExpiredJwtException
+import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import org.springframework.stereotype.Service
@@ -8,28 +10,78 @@ import javax.crypto.SecretKey
 
 @Service
 class JwtService {
-    // Bu anahtarı normalde environment variable'dan almak daha güvenlidir.
-    // Şimdilik buraya uzun ve karmaşık bir string koyuyoruz (En az 32 karakter olmalı).
-    private val secretKey: SecretKey = Keys.hmacShaKeyFor(
-        "benim_cok_gizli_ve_uzun_jwt_sifreleme_anahtarim_12345".toByteArray()
-    )
 
-    fun generateToken(username: String): String {
+    private val secretKey: SecretKey = initSecretKey()
+
+    private fun initSecretKey(): SecretKey {
+        val secret = System.getenv("JWT_SECRET")
+            ?: throw IllegalStateException("JWT_SECRET environment variable must be set! Please configure it before starting the application.")
+        
+        if (secret.length < 32) {
+            throw IllegalStateException("JWT_SECRET must be at least 32 characters long for security!")
+        }
+        
+        return Keys.hmacShaKeyFor(secret.toByteArray(Charsets.UTF_8))
+    }
+
+    fun generateAccessToken(username: String): String {
         return Jwts.builder()
             .subject(username)
             .issuedAt(Date())
-            .expiration(Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24 Saat geçerli
+            .expiration(Date(System.currentTimeMillis() + 1000 * 60 * 15)) // 15 dakika
             .signWith(secretKey)
             .compact()
     }
 
-    // Token'dan kullanıcı adını okuma
-    fun extractUsername(token: String): String {
-        return Jwts.parser()
-            .verifyWith(secretKey)
-            .build()
-            .parseSignedClaims(token)
-            .payload
-            .subject
+    fun generateRefreshToken(username: String): String {
+        return Jwts.builder()
+            .subject(username)
+            .issuedAt(Date())
+            .expiration(Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24 * 30)) // 30 gün
+            .signWith(secretKey)
+            .compact()
+    }
+
+    fun extractUsername(token: String): String? {
+        return try {
+            Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .payload
+                .subject
+        } catch (e: JwtException) {
+            null
+        }
+    }
+
+    fun extractExpiration(token: String): Date? {
+        return try {
+            Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .payload
+                .expiration
+        } catch (e: JwtException) {
+            null
+        }
+    }
+
+    fun isTokenValid(token: String): Boolean {
+        return try {
+            val claims = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .payload
+            
+            val expiration = claims.expiration
+            expiration != null && expiration.after(Date())
+        } catch (e: ExpiredJwtException) {
+            false
+        } catch (e: JwtException) {
+            false
+        }
     }
 }
