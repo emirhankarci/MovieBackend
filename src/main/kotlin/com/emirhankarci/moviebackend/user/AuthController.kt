@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.user
 
+import com.emirhankarci.moviebackend.security.JwtService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -13,10 +14,21 @@ data class RegisterRequest(
     val password: String
 )
 
+data class LoginRequest(
+    val email: String,
+    val password: String
+)
+
+data class LoginResponse(
+    val token: String,
+    val username: String
+)
+
 @RestController
 @RequestMapping("/api/auth")
 class AuthController(
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val jwtService: JwtService
 ) {
 
     @PostMapping("/register")
@@ -40,5 +52,23 @@ class AuthController(
         userRepository.save(newUser)
 
         return ResponseEntity.ok("User registered successfully!")
+    }
+
+    @PostMapping("/login")
+    fun login(@RequestBody request: LoginRequest): ResponseEntity<Any> {
+        // 1. Kullanıcıyı bul
+        val user = userRepository.findByEmail(request.email)
+            ?: return ResponseEntity.status(401).body("User not found!")
+
+        // 2. Şifreyi kontrol et
+        if (user.password != request.password) {
+            return ResponseEntity.status(401).body("Invalid password!")
+        }
+
+        // 3. Token üret
+        val token = jwtService.generateToken(user.username)
+
+        // 4. Token'ı döndür
+        return ResponseEntity.ok(LoginResponse(token, user.username))
     }
 }
