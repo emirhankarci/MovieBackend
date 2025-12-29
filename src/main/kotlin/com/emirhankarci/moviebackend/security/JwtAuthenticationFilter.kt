@@ -4,6 +4,7 @@ import com.emirhankarci.moviebackend.user.UserRepository
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import org.slf4j.LoggerFactory
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource
@@ -16,47 +17,52 @@ class JwtAuthenticationFilter(
     private val userRepository: UserRepository
 ) : OncePerRequestFilter() {
 
+    private val log = LoggerFactory.getLogger(JwtAuthenticationFilter::class.java)
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
         filterChain: FilterChain
     ) {
-        // 1. Authorization header'ı al
+        val method = request.method
+        val path = request.requestURI
         val authHeader = request.getHeader("Authorization")
         
-        // 2. Bearer token yoksa devam et
+        log.debug("[{}] Request - Path: {}, AuthHeader present: {}", method, path, authHeader != null)
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response)
             return
         }
 
-        // 3. Token'ı çıkar
         val token = authHeader.substring(7)
 
-        // 4. Token geçerli mi kontrol et
         if (!jwtService.isTokenValid(token)) {
+            log.debug("[{}] Invalid or expired token for {}", method, path)
             filterChain.doFilter(request, response)
             return
         }
 
-        // 5. Username'i çıkar
         val username = jwtService.extractUsername(token)
         if (username == null) {
+            log.debug("[{}] Extract username failed for {}", method, path)
             filterChain.doFilter(request, response)
             return
         }
 
-        // 6. SecurityContext'te zaten authentication yoksa set et
         if (SecurityContextHolder.getContext().authentication == null) {
             val user = userRepository.findByUsername(username)
             if (user != null) {
+                log.debug("[{}] User '{}' authenticated for {}", method, username, path)
                 val authToken = UsernamePasswordAuthenticationToken(
-                    user,
+                    user.username,
                     null,
-                    emptyList() // Şimdilik rol yok
+                    listOf(org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"))
                 )
                 authToken.details = WebAuthenticationDetailsSource().buildDetails(request)
                 SecurityContextHolder.getContext().authentication = authToken
+            } else {
+                log.warn("[{}] User '{}' not found in DB!", method, username)
             }
         }
 

@@ -54,8 +54,8 @@ class AuthController(
             firstName = request.firstName,
             lastName = request.lastName
         )) {
-            is AuthResult.Success -> ResponseEntity.ok(result.data)
-            is AuthResult.Error -> ResponseEntity.badRequest().body(result.message)
+            is AuthResult.Success -> ResponseEntity.ok(mapOf("message" to result.data))
+            is AuthResult.Error -> ResponseEntity.badRequest().body(mapOf("message" to result.message))
         }
     }
 
@@ -63,7 +63,7 @@ class AuthController(
     fun login(@RequestBody request: LoginRequest): ResponseEntity<Any> {
         return when (val result = authService.login(request.email, request.password)) {
             is AuthResult.Success -> ResponseEntity.ok(result.data)
-            is AuthResult.Error -> ResponseEntity.status(401).body(result.message)
+            is AuthResult.Error -> ResponseEntity.status(401).body(mapOf("message" to result.message))
         }
     }
 
@@ -71,15 +71,15 @@ class AuthController(
     fun refresh(@RequestBody request: RefreshRequest): ResponseEntity<Any> {
         return when (val result = authService.refresh(request.refreshToken)) {
             is AuthResult.Success -> ResponseEntity.ok(result.data)
-            is AuthResult.Error -> ResponseEntity.status(401).body(result.message)
+            is AuthResult.Error -> ResponseEntity.status(401).body(mapOf("message" to result.message))
         }
     }
 
     @PostMapping("/logout")
     fun logout(@RequestBody request: LogoutRequest): ResponseEntity<Any> {
         return when (val result = authService.logout(request.refreshToken)) {
-            is AuthResult.Success -> ResponseEntity.ok(result.data)
-            is AuthResult.Error -> ResponseEntity.badRequest().body(result.message)
+            is AuthResult.Success -> ResponseEntity.ok(mapOf("message" to result.data))
+            is AuthResult.Error -> ResponseEntity.badRequest().body(mapOf("message" to result.message))
         }
     }
 }

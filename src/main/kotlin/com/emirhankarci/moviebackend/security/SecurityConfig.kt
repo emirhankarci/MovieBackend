@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.security
 
+import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -18,6 +19,9 @@ class SecurityConfig(
     private val jwtAuthenticationFilter: JwtAuthenticationFilter,
     private val rateLimitingFilter: RateLimitingFilter
 ) {
+    companion object {
+        private val logger = LoggerFactory.getLogger(SecurityConfig::class.java)
+    }
 
     @Bean
     fun passwordEncoder(): PasswordEncoder = BCryptPasswordEncoder()
@@ -44,7 +48,16 @@ class SecurityConfig(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
                 auth.requestMatchers("/api/auth/**").permitAll()
+                auth.requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                 auth.anyRequest().authenticated()
+            }
+            .exceptionHandling {
+                it.authenticationEntryPoint { request, response, authException ->
+                    logger.debug("Authentication failed for {} {}: {}", request.method, request.requestURI, authException.message)
+                    response.status = 401
+                    response.contentType = "application/json"
+                    response.writer.write("{\"message\": \"Unauthorized: ${authException.message}\"}")
+                }
             }
             .httpBasic { it.disable() }
             .formLogin { it.disable() }
