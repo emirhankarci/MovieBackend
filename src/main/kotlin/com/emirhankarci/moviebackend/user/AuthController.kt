@@ -9,10 +9,7 @@ import org.springframework.web.bind.annotation.RestController
 data class RegisterRequest(
     val username: String,
     val email: String,
-    val password: String,
-    val confirmPassword: String,
-    val firstName: String,
-    val lastName: String
+    val password: String
 )
 
 data class LoginRequest(
@@ -46,14 +43,7 @@ class AuthController(
 
     @PostMapping("/register")
     fun register(@RequestBody request: RegisterRequest): ResponseEntity<Any> {
-        return when (val result = authService.register(
-            username = request.username,
-            email = request.email,
-            password = request.password,
-            confirmPassword = request.confirmPassword,
-            firstName = request.firstName,
-            lastName = request.lastName
-        )) {
+        return when (val result = authService.register(request.username, request.email, request.password)) {
             is AuthResult.Success -> ResponseEntity.ok(result.data)
             is AuthResult.Error -> ResponseEntity.badRequest().body(result.message)
         }

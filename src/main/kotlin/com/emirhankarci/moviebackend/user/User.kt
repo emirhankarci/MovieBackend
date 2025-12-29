@@ -16,11 +16,5 @@ data class User(
     val email: String,
 
     @Column(nullable = false)
-    val password: String, // Şimdilik düz metin, sonra şifreleyeceğiz (BCrypt)
-
-    @Column(nullable = false)
-    val firstName: String,
-
-    @Column(nullable = false)
-    val lastName: String
+    val password: String // Şimdilik düz metin, sonra şifreleyeceğiz (BCrypt)
 )
