@@ -1,0 +1,17 @@
+package com.emirhankarci.moviebackend.chat
+
+interface AiService {
+    fun generateResponse(conversationContext: List<ChatMessage>): AiResult<String>
+}
+
+sealed class AiResult<out T> {
+    data class Success<T>(val data: T) : AiResult<T>()
+    data class Error(val message: String, val code: AiErrorCode) : AiResult<Nothing>()
+}
+
+enum class AiErrorCode {
+    API_ERROR,
+    TIMEOUT,
+    RATE_LIMITED,
+    INVALID_RESPONSE
+}
