@@ -17,11 +17,17 @@ class JwtService {
         val secret = System.getenv("JWT_SECRET")
             ?: throw IllegalStateException("JWT_SECRET environment variable must be set! Please configure it before starting the application.")
         
-        if (secret.length < 32) {
-            throw IllegalStateException("JWT_SECRET must be at least 32 characters long for security!")
+        val keyBytes = try {
+            Base64.getDecoder().decode(secret)
+        } catch (e: IllegalArgumentException) {
+            secret.toByteArray(Charsets.UTF_8)
+        }
+
+        if (keyBytes.size < 32) {
+            throw IllegalStateException("JWT_SECRET must be at least 32 characters (256 bits) long for security!")
         }
         
-        return Keys.hmacShaKeyFor(secret.toByteArray(Charsets.UTF_8))
+        return Keys.hmacShaKeyFor(keyBytes)
     }
 
     fun generateAccessToken(username: String): String {

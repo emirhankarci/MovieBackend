@@ -69,6 +69,7 @@ class AuthService(
         return AuthResult.Success("User registered successfully!")
     }
 
+    @Transactional
     fun login(email: String, password: String): AuthResult<LoginResponse> {
         val user = userRepository.findByEmail(email)
             ?: return AuthResult.Error("User not found!")
@@ -76,6 +77,9 @@ class AuthService(
         if (!passwordEncoder.matches(password, user.password)) {
             return AuthResult.Error("Invalid password!")
         }
+
+        // Login anında eski tokenları temizle
+        refreshTokenRepository.deleteByUser(user)
 
         val accessToken = jwtService.generateAccessToken(user.username)
         val refreshToken = jwtService.generateRefreshToken(user.username)
@@ -91,15 +95,19 @@ class AuthService(
         return AuthResult.Success(LoginResponse(accessToken, refreshToken, user.username))
     }
 
-    fun refresh(refreshToken: String): AuthResult<TokenResponse> {
+    @Transactional
+    fun refresh(refreshToken: String): AuthResult<LoginResponse> {
         val storedToken = refreshTokenRepository.findByToken(refreshToken)
             ?: return AuthResult.Error("Refresh token not found!")
 
         if (storedToken.revoked) {
-            return AuthResult.Error("Refresh token revoked!")
+            // Token çalınmış olabilir, tüm user tokenlarını temizlemek daha güvenlidir
+            refreshTokenRepository.deleteByUser(storedToken.user)
+            return AuthResult.Error("Refresh token revoked! All sessions cleared for security.")
         }
 
         if (storedToken.expiresAt.isBefore(Instant.now())) {
+            refreshTokenRepository.delete(storedToken)
             return AuthResult.Error("Refresh token expired!")
         }
 
@@ -110,8 +118,23 @@ class AuthService(
         val username = jwtService.extractUsername(refreshToken)
             ?: return AuthResult.Error("Invalid refresh token!")
 
+        val user = storedToken.user
+        
+        // Token Rotasyonu: Mevcut olanı sil veya iptal et, yenisini oluştur
+        refreshTokenRepository.delete(storedToken)
+
         val newAccessToken = jwtService.generateAccessToken(username)
-        return AuthResult.Success(TokenResponse(newAccessToken))
+        val newRefreshToken = jwtService.generateRefreshToken(username)
+
+        val refreshTokenEntity = RefreshToken(
+            token = newRefreshToken,
+            user = user,
+            expiresAt = Instant.now().plusSeconds(60 * 60 * 24 * 30),
+            revoked = false
+        )
+        refreshTokenRepository.save(refreshTokenEntity)
+
+        return AuthResult.Success(LoginResponse(newAccessToken, newRefreshToken, username))
     }
 
     @Transactional
