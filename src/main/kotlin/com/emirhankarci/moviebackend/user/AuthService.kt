@@ -21,10 +21,21 @@ class AuthService(
     private val refreshTokenRepository: RefreshTokenRepository
 ) {
 
-    fun register(username: String, email: String, password: String): AuthResult<String> {
+    fun register(
+        username: String,
+        email: String,
+        password: String,
+        confirmPassword: String,
+        firstName: String,
+        lastName: String
+    ): AuthResult<String> {
         // Validation
-        if (username.isBlank() || email.isBlank() || password.isBlank()) {
+        if (username.isBlank() || email.isBlank() || password.isBlank() || firstName.isBlank() || lastName.isBlank()) {
             return AuthResult.Error("All fields are required!")
+        }
+
+        if (password != confirmPassword) {
+            return AuthResult.Error("Passwords do not match!")
         }
 
         if (!isValidEmail(email)) {
@@ -49,7 +60,9 @@ class AuthService(
         val newUser = User(
             username = username,
             email = email,
-            password = encodedPassword
+            password = encodedPassword,
+            firstName = firstName,
+            lastName = lastName
         )
 
         userRepository.save(newUser)
