@@ -4,20 +4,22 @@ import com.emirhankarci.moviebackend.user.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import tools.jackson.module.kotlin.jacksonObjectMapper
+import tools.jackson.module.kotlin.readValue
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 @Service
 class ChatService(
     private val chatMessageRepository: ChatMessageRepository,
     private val userRepository: UserRepository,
-    private val aiService: AiService
+    private val aiService: AiService,
+    private val tmdbService: TmdbService
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(ChatService::class.java)
         private const val DAILY_MESSAGE_LIMIT = 5
-        private const val CONTEXT_MESSAGE_COUNT = 10
+        private val objectMapper = jacksonObjectMapper()
     }
 
     @Transactional
@@ -54,7 +56,7 @@ class ChatService(
             .reversed() // Convert to chronological order
 
         // Call AI service
-        val aiResponse = when (val result = aiService.generateResponse(context)) {
+        val aiResponseRaw = when (val result = aiService.generateResponse(context)) {
             is AiResult.Success -> result.data
             is AiResult.Error -> {
                 logger.error("AI service error for user {}: {}", username, result.message)
@@ -62,11 +64,14 @@ class ChatService(
             }
         }
 
-        // Save AI response
+        // Enrich AI response with TMDB data
+        val enrichedResponse = enrichWithTmdbData(aiResponseRaw)
+
+        // Save AI response (enriched version)
         val assistantMessage = chatMessageRepository.save(
             ChatMessage(
                 user = user,
-                content = aiResponse,
+                content = enrichedResponse,
                 role = MessageRole.ASSISTANT
             )
         )
@@ -81,6 +86,37 @@ class ChatService(
                 remainingQuota = remainingQuota.coerceAtLeast(0)
             )
         )
+    }
+
+    private fun enrichWithTmdbData(aiResponse: String): String {
+        return try {
+            // Clean markdown code blocks if present
+            val cleanedResponse = aiResponse
+                .replace("```json", "")
+                .replace("```", "")
+                .trim()
+            
+            // Parse AI response
+            val aiData = objectMapper.readValue(cleanedResponse, AiResponseData::class.java)
+            
+            // If movieTitle exists, search TMDB
+            val movieData = aiData.movieTitle?.let { title ->
+                tmdbService.searchMovie(title)
+            }
+
+            // Build enriched response
+            val enrichedData = EnrichedAiResponse(
+                preMessage = aiData.preMessage,
+                movieData = movieData,
+                postMessage = aiData.postMessage
+            )
+
+            objectMapper.writeValueAsString(enrichedData)
+        } catch (e: Exception) {
+            logger.warn("Failed to enrich AI response with TMDB data: {}", e.message)
+            // Return original response if parsing fails
+            aiResponse
+        }
     }
 
     fun getConversationHistory(username: String): ChatResult<List<ChatMessageResponse>> {
@@ -123,3 +159,17 @@ class ChatService(
         createdAt = this.createdAt
     )
 }
+
+// AI Response parsing models
+data class AiResponseData(
+    val preMessage: String,
+    val movieTitle: String?,
+    val postMessage: String
+)
+
+// Enriched response with TMDB data
+data class EnrichedAiResponse(
+    val preMessage: String,
+    val movieData: MovieData?,
+    val postMessage: String
+)
