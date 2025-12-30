@@ -55,4 +55,15 @@ class WatchedMovieController(
             is WatchedMovieResult.Error -> ResponseEntity.badRequest().body(mapOf("message" to result.message))
         }
     }
+
+    @PostMapping("/rate")
+    fun rateMovie(@RequestBody request: RateMovieRequest): ResponseEntity<Any> {
+        val username = SecurityContextHolder.getContext().authentication?.name
+            ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
+
+        return when (val result = watchedMovieService.rateMovie(username, request)) {
+            is WatchedMovieResult.Success -> ResponseEntity.ok(result.data)
+            is WatchedMovieResult.Error -> ResponseEntity.badRequest().body(mapOf("message" to result.message))
+        }
+    }
 }

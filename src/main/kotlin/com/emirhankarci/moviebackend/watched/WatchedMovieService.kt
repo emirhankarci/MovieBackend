@@ -4,6 +4,7 @@ import com.emirhankarci.moviebackend.user.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.math.BigDecimal
 
 @Service
 class WatchedMovieService(
@@ -82,7 +83,7 @@ class WatchedMovieService(
                 movieTitle = it.movieTitle,
                 posterPath = it.posterPath,
                 watchedAt = it.watchedAt,
-                userRating = it.userRating
+                userRating = it.userRating?.toDouble()
             )
         }
 
@@ -94,9 +95,59 @@ class WatchedMovieService(
         val user = userRepository.findByUsername(username)
             ?: return WatchedMovieResult.Error("User not found!")
 
-        val exists = watchedMovieRepository.existsByUserIdAndMovieId(user.id!!, movieId)
-        logger.debug("Watched status check for user {}, movie {}: {}", username, movieId, exists)
+        val watchedMovie = watchedMovieRepository.findByUserIdAndMovieId(user.id!!, movieId)
+        val isWatched = watchedMovie.isPresent
+        val userRating = watchedMovie.orElse(null)?.userRating?.toDouble()
+        
+        logger.debug("Watched status check for user {}, movie {}: watched={}, rating={}", username, movieId, isWatched, userRating)
 
-        return WatchedMovieResult.Success(WatchedMovieStatusResponse(movieId, exists))
+        return WatchedMovieResult.Success(WatchedMovieStatusResponse(movieId, isWatched, userRating))
+    }
+
+    @Transactional
+    fun rateMovie(username: String, request: RateMovieRequest): WatchedMovieResult<RateMovieResponse> {
+        when (val validation = request.validate()) {
+            is RatingValidationResult.Invalid -> {
+                logger.warn("Rating validation failed for user {}: {}", username, validation.message)
+                return WatchedMovieResult.Error(validation.message)
+            }
+            is RatingValidationResult.Valid -> { /* continue */ }
+        }
+
+        val user = userRepository.findByUsername(username)
+            ?: return WatchedMovieResult.Error("User not found!")
+
+        val existing = watchedMovieRepository.findByUserIdAndMovieId(user.id!!, request.movieId)
+        val ratingAsBigDecimal = BigDecimal.valueOf(request.rating)
+
+        return if (existing.isPresent) {
+            // Movie already watched, just update the rating
+            val updated = existing.get().copy(userRating = ratingAsBigDecimal)
+            watchedMovieRepository.save(updated)
+            logger.info("Rating updated to {} for movie {} by user {}", request.rating, request.movieId, username)
+            WatchedMovieResult.Success(RateMovieResponse(
+                movieId = request.movieId,
+                rating = request.rating,
+                isNewlyWatched = false,
+                message = "Rating updated successfully"
+            ))
+        } else {
+            // Movie not watched, add to watched list with rating
+            val watchedMovie = WatchedMovie(
+                user = user,
+                movieId = request.movieId,
+                movieTitle = request.movieTitle,
+                posterPath = request.posterPath,
+                userRating = ratingAsBigDecimal
+            )
+            watchedMovieRepository.save(watchedMovie)
+            logger.info("Movie {} added to watched list with rating {} for user {}", request.movieId, request.rating, username)
+            WatchedMovieResult.Success(RateMovieResponse(
+                movieId = request.movieId,
+                rating = request.rating,
+                isNewlyWatched = true,
+                message = "Movie added to watched list and rated successfully"
+            ))
+        }
     }
 }

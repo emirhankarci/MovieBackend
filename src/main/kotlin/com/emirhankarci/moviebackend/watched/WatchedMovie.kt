@@ -2,6 +2,7 @@ package com.emirhankarci.moviebackend.watched
 
 import com.emirhankarci.moviebackend.user.User
 import jakarta.persistence.*
+import java.math.BigDecimal
 import java.time.LocalDateTime
 
 @Entity
@@ -27,6 +28,6 @@ data class WatchedMovie(
     @Column(name = "watched_at", updatable = false)
     val watchedAt: LocalDateTime = LocalDateTime.now(),
 
-    @Column(name = "user_rating")
-    val userRating: Int? = null
+    @Column(name = "user_rating", precision = 3, scale = 1)
+    val userRating: BigDecimal? = null
 )
