@@ -32,11 +32,11 @@ class SuggestionResponseParser(
     }
 }
 
-// AI Response models
+// AI Response models - default values for Jackson deserialization
 data class SuggestionAiResponse(
-    val recommendations: List<MovieRecommendation>
+    val recommendations: List<MovieRecommendation> = emptyList()
 )
 
 data class MovieRecommendation(
-    val title: String
+    val title: String = ""
 )

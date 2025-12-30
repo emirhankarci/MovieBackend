@@ -66,9 +66,12 @@ class TmdbService(
     }
 
     fun validateMovieQuality(movie: MovieData): Boolean {
-        val isValid = movie.rating > 6.99 && movie.voteCount > 20000
+        val isValid = movie.rating > 6.49 && movie.voteCount > 1000
         if (!isValid) {
-            logger.debug("Movie {} failed quality check: rating={}, votes={}", 
+            logger.info("Movie {} failed quality check: rating={}, votes={} (need >6.49 rating, >1000 votes)", 
+                movie.title, movie.rating, movie.voteCount)
+        } else {
+            logger.info("Movie {} passed quality check: rating={}, votes={}", 
                 movie.title, movie.rating, movie.voteCount)
         }
         return isValid
