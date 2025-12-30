@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional
 import tools.jackson.module.kotlin.jacksonObjectMapper
 import tools.jackson.module.kotlin.readValue
 import java.time.LocalDate
-import java.time.ZoneOffset
+import java.time.LocalDateTime
 
 @Service
 class ChatService(
@@ -29,9 +29,11 @@ class ChatService(
 
         val userId = user.id ?: return ChatResult.Error("User ID not found", ChatErrorCode.USER_NOT_FOUND)
 
-        // Check daily limit
-        val todayStart = LocalDate.now(ZoneOffset.UTC).atStartOfDay()
+        // Check daily limit - use local time (same as createdAt)
+        val todayStart = LocalDate.now().atStartOfDay()
         val messageCountToday = chatMessageRepository.countUserMessagesTodayByUserId(userId, todayStart)
+        
+        logger.debug("User {} message count today: {} (since {})", username, messageCountToday, todayStart)
         
         if (messageCountToday >= DAILY_MESSAGE_LIMIT) {
             logger.warn("User {} exceeded daily message limit", username)
@@ -138,11 +140,12 @@ class ChatService(
 
         val userId = user.id ?: return ChatResult.Error("User ID not found", ChatErrorCode.USER_NOT_FOUND)
 
-        val todayStart = LocalDate.now(ZoneOffset.UTC).atStartOfDay()
+        // Use local time (same as createdAt)
+        val todayStart = LocalDate.now().atStartOfDay()
         val used = chatMessageRepository.countUserMessagesTodayByUserId(userId, todayStart).toInt()
         val remaining = (DAILY_MESSAGE_LIMIT - used).coerceAtLeast(0)
 
-        logger.debug("Quota for user {}: used={}, remaining={}", username, used, remaining)
+        logger.debug("Quota for user {}: used={}, remaining={} (since {})", username, used, remaining, todayStart)
         return ChatResult.Success(
             QuotaResponse(
                 used = used,
