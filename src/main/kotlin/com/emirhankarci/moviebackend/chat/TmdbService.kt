@@ -41,6 +41,39 @@ class TmdbService(
         }
     }
 
+    fun getMovieById(movieId: Long): MovieData? {
+        return try {
+            val url = "$TMDB_API_URL/movie/$movieId?api_key=$apiKey&language=tr-TR"
+            val response = restTemplate.getForObject(url, TmdbMovieDetail::class.java)
+            
+            if (response != null) {
+                logger.info("Fetched movie by ID: {} ({})", response.title, movieId)
+                MovieData(
+                    id = response.id,
+                    title = response.title,
+                    posterPath = response.poster_path,
+                    rating = response.vote_average,
+                    voteCount = response.vote_count
+                )
+            } else {
+                logger.warn("Movie not found by ID: {}", movieId)
+                null
+            }
+        } catch (e: Exception) {
+            logger.error("TMDB fetch by ID failed for '{}': {}", movieId, e.message)
+            null
+        }
+    }
+
+    fun validateMovieQuality(movie: MovieData): Boolean {
+        val isValid = movie.rating > 6.99 && movie.voteCount > 20000
+        if (!isValid) {
+            logger.debug("Movie {} failed quality check: rating={}, votes={}", 
+                movie.title, movie.rating, movie.voteCount)
+        }
+        return isValid
+    }
+
     private fun String.encodeUrl(): String {
         return java.net.URLEncoder.encode(this, "UTF-8")
     }
@@ -66,4 +99,13 @@ data class MovieData(
     val posterPath: String?,
     val rating: Double,
     val voteCount: Int
+)
+
+// TMDB Movie Detail Response (for getMovieById)
+data class TmdbMovieDetail(
+    val id: Long,
+    val title: String,
+    val poster_path: String?,
+    val vote_average: Double,
+    val vote_count: Int
 )
