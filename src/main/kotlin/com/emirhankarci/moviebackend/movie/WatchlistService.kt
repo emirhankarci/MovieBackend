@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.math.BigDecimal
 
 @Service
 class WatchlistService(
@@ -40,7 +41,8 @@ class WatchlistService(
                 user = user,
                 movieId = request.movieId,
                 movieTitle = request.movieTitle,
-                posterPath = request.posterPath
+                posterPath = request.posterPath,
+                imdbRating = request.imdbRating?.let { BigDecimal.valueOf(it) }
             )
             watchlistRepository.save(watchlistEntry)
             logger.info("Movie {} added to watchlist for user {}", request.movieId, username)
@@ -94,7 +96,8 @@ class WatchlistService(
                     movieId = it.movieId,
                     movieTitle = it.movieTitle,
                     posterPath = it.posterPath,
-                    addedAt = it.createdAt
+                    addedAt = it.createdAt,
+                    imdbRating = it.imdbRating?.toDouble()
                 )
             }
             
@@ -114,7 +117,8 @@ class WatchlistService(
                         movieId = it.movieId,
                         movieTitle = it.movieTitle,
                         posterPath = it.posterPath,
-                        addedAt = it.createdAt
+                        addedAt = it.createdAt,
+                        imdbRating = it.imdbRating?.toDouble()
                     )
                 }
             

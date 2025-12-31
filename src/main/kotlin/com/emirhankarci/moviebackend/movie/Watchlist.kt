@@ -2,6 +2,7 @@ package com.emirhankarci.moviebackend.movie
 
 import com.emirhankarci.moviebackend.user.User
 import jakarta.persistence.*
+import java.math.BigDecimal
 import java.time.LocalDateTime
 
 @Entity
@@ -23,6 +24,9 @@ data class Watchlist(
 
     @Column(name = "poster_path")
     val posterPath: String? = null,
+
+    @Column(name = "imdb_rating", precision = 3, scale = 1)
+    val imdbRating: BigDecimal? = null,
 
     @Column(name = "created_at", updatable = false)
     val createdAt: LocalDateTime = LocalDateTime.now()
