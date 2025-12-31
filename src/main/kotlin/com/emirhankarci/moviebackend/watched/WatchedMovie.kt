@@ -29,5 +29,8 @@ data class WatchedMovie(
     val watchedAt: LocalDateTime = LocalDateTime.now(),
 
     @Column(name = "user_rating", precision = 3, scale = 1)
-    val userRating: BigDecimal? = null
+    val userRating: BigDecimal? = null,
+
+    @Column(name = "imdb_rating", precision = 3, scale = 1)
+    val imdbRating: BigDecimal? = null
 )

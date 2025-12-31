@@ -38,7 +38,8 @@ class WatchedMovieService(
                 user = user,
                 movieId = request.movieId,
                 movieTitle = request.movieTitle,
-                posterPath = request.posterPath
+                posterPath = request.posterPath,
+                imdbRating = request.imdbRating?.let { BigDecimal.valueOf(it) }
             )
             watchedMovieRepository.save(watchedMovie)
             logger.info("Movie {} added to watched list for user {}", request.movieId, username)
@@ -83,7 +84,8 @@ class WatchedMovieService(
                 movieTitle = it.movieTitle,
                 posterPath = it.posterPath,
                 watchedAt = it.watchedAt,
-                userRating = it.userRating?.toDouble()
+                userRating = it.userRating?.toDouble(),
+                imdbRating = it.imdbRating?.toDouble()
             )
         }
 
@@ -121,8 +123,12 @@ class WatchedMovieService(
         val ratingAsBigDecimal = BigDecimal.valueOf(request.rating)
 
         return if (existing.isPresent) {
-            // Movie already watched, just update the rating
-            val updated = existing.get().copy(userRating = ratingAsBigDecimal)
+            // Movie already watched, update the rating and imdbRating if provided
+            val existingMovie = existing.get()
+            val updated = existingMovie.copy(
+                userRating = ratingAsBigDecimal,
+                imdbRating = request.imdbRating?.let { BigDecimal.valueOf(it) } ?: existingMovie.imdbRating
+            )
             watchedMovieRepository.save(updated)
             logger.info("Rating updated to {} for movie {} by user {}", request.rating, request.movieId, username)
             WatchedMovieResult.Success(RateMovieResponse(
@@ -138,7 +144,8 @@ class WatchedMovieService(
                 movieId = request.movieId,
                 movieTitle = request.movieTitle,
                 posterPath = request.posterPath,
-                userRating = ratingAsBigDecimal
+                userRating = ratingAsBigDecimal,
+                imdbRating = request.imdbRating?.let { BigDecimal.valueOf(it) }
             )
             watchedMovieRepository.save(watchedMovie)
             logger.info("Movie {} added to watched list with rating {} for user {}", request.movieId, request.rating, username)

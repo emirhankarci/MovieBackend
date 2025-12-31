@@ -6,7 +6,8 @@ import java.time.LocalDateTime
 data class WatchedMovieRequest(
     val movieId: Long,
     val movieTitle: String,
-    val posterPath: String?
+    val posterPath: String?,
+    val imdbRating: Double? = null
 ) {
     fun validate(): WatchedMovieValidationResult {
         if (movieId <= 0) {
@@ -14,6 +15,9 @@ data class WatchedMovieRequest(
         }
         if (movieTitle.isBlank()) {
             return WatchedMovieValidationResult.Invalid("Movie title cannot be empty")
+        }
+        if (imdbRating != null && (imdbRating < 0.0 || imdbRating > 10.0)) {
+            return WatchedMovieValidationResult.Invalid("IMDb rating must be between 0.0 and 10.0")
         }
         return WatchedMovieValidationResult.Valid
     }
@@ -23,7 +27,8 @@ data class RateMovieRequest(
     val movieId: Long,
     val movieTitle: String,
     val posterPath: String?,
-    val rating: Double
+    val rating: Double,
+    val imdbRating: Double? = null
 ) {
     fun validate(): RatingValidationResult {
         if (movieId <= 0) {
@@ -38,6 +43,9 @@ data class RateMovieRequest(
         // 0.5 increment check: rating * 2 must be a whole number
         if ((rating * 2) != (rating * 2).toLong().toDouble()) {
             return RatingValidationResult.Invalid("Rating must be in 0.5 increments (e.g., 7.0, 7.5, 8.0)")
+        }
+        if (imdbRating != null && (imdbRating < 0.0 || imdbRating > 10.0)) {
+            return RatingValidationResult.Invalid("IMDb rating must be between 0.0 and 10.0")
         }
         return RatingValidationResult.Valid
     }
@@ -62,7 +70,8 @@ data class WatchedMovieResponse(
     val posterPath: String?,
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     val watchedAt: LocalDateTime,
-    val userRating: Double?
+    val userRating: Double?,
+    val imdbRating: Double? = null
 )
 
 data class WatchedMovieStatusResponse(
