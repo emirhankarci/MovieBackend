@@ -1,5 +1,9 @@
 package com.emirhankarci.moviebackend.exception
 
+import com.emirhankarci.moviebackend.search.ExternalServiceException
+import com.emirhankarci.moviebackend.search.InvalidGenreException
+import com.emirhankarci.moviebackend.search.InvalidQueryException
+import com.emirhankarci.moviebackend.search.InvalidRatingRangeException
 import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.JwtException
 import org.springframework.http.HttpStatus
@@ -27,6 +31,34 @@ class GlobalExceptionHandler {
         return ResponseEntity
             .status(HttpStatus.UNAUTHORIZED)
             .body(ErrorResponse(401, "Invalid token!"))
+    }
+
+    @ExceptionHandler(InvalidQueryException::class)
+    fun handleInvalidQuery(ex: InvalidQueryException): ResponseEntity<ErrorResponse> {
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse(400, ex.message ?: "Invalid query"))
+    }
+
+    @ExceptionHandler(InvalidGenreException::class)
+    fun handleInvalidGenre(ex: InvalidGenreException): ResponseEntity<ErrorResponse> {
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse(400, ex.message ?: "Invalid genre"))
+    }
+
+    @ExceptionHandler(InvalidRatingRangeException::class)
+    fun handleInvalidRatingRange(ex: InvalidRatingRangeException): ResponseEntity<ErrorResponse> {
+        return ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse(400, ex.message ?: "Invalid rating range"))
+    }
+
+    @ExceptionHandler(ExternalServiceException::class)
+    fun handleExternalService(ex: ExternalServiceException): ResponseEntity<ErrorResponse> {
+        return ResponseEntity
+            .status(HttpStatus.SERVICE_UNAVAILABLE)
+            .body(ErrorResponse(503, ex.message ?: "External service unavailable"))
     }
 
     @ExceptionHandler(IllegalStateException::class)
