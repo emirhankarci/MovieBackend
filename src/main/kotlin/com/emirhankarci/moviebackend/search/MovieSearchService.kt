@@ -61,6 +61,7 @@ class MovieSearchService(
     fun discoverWithFilters(filters: DiscoverFilters, page: Int, size: Int): SearchResult {
         return try {
             val tmdbPage = page + 1
+            val sortType = SortType.fromSortBy(filters.sortBy)
             val urlBuilder = StringBuilder("$TMDB_API_URL/discover/movie?api_key=$apiKey&language=tr-TR&page=$tmdbPage")
             
             // Add genre filter
@@ -78,13 +79,21 @@ class MovieSearchService(
             // Sort by the specified sort option
             urlBuilder.append("&sort_by=${filters.sortBy}")
             
-            logger.info("Discovering movies with filters: {}", filters)
+            // Add sort-specific parameters (release_date.lte, vote_count.gte, etc.)
+            val sortParams = SortParameterBuilder.buildParameters(filters.sortBy)
+            sortParams.forEach { (key, value) ->
+                urlBuilder.append("&$key=$value")
+            }
+            
+            logger.info("Discovering movies with filters: {}, sortType: {}", filters, sortType)
+            logger.debug("TMDB URL: {}", urlBuilder.toString().replace(apiKey, "***"))
+            
             val response = restTemplate.getForObject(urlBuilder.toString(), TmdbSearchResponse::class.java)
             
             var movies = response?.results?.map { it.toMovieDto() } ?: emptyList()
             
-            // Apply quality filter
-            movies = qualityFilter.filter(movies)
+            // Apply quality filter with sort-specific thresholds
+            movies = qualityFilter.filter(movies, sortType)
             
             // Apply rating range filters (TMDB doesn't support exact rating filters well)
             movies = applyRatingFilters(movies, filters)
