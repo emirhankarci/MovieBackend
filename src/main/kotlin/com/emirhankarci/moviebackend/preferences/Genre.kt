@@ -2,13 +2,22 @@ package com.emirhankarci.moviebackend.preferences
 
 enum class Genre {
     ACTION,
-    SCIFI,
-    HORROR,
-    DRAMA,
+    ADVENTURE,
     ANIMATION,
     COMEDY,
-    ROMANCE,
-    THRILLER,
+    CRIME,
+    DOCUMENTARY,
+    DRAMA,
+    FAMILY,
     FANTASY,
-    DOCUMENTARY
+    HISTORY,
+    HORROR,
+    MUSIC,
+    MYSTERY,
+    ROMANCE,
+    SCIFI,
+    THRILLER,
+    TV_MOVIE,
+    WAR,
+    WESTERN
 }
