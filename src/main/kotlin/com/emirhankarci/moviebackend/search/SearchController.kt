@@ -63,9 +63,20 @@ class SearchController(
         @RequestParam(required = false) minRating: Double?,
         @RequestParam(required = false) maxRating: Double?,
         @RequestParam(required = false) year: Int?,
+        @RequestParam(defaultValue = "popularity.desc") sortBy: String,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int
     ): ResponseEntity<Any> {
+        // Validate sortBy parameter
+        if (!SortOption.isValid(sortBy)) {
+            return ResponseEntity.badRequest().body(
+                ErrorResponse(
+                    error = "INVALID_SORT_OPTION",
+                    message = "Geçersiz sıralama seçeneği: $sortBy. Geçerli seçenekler: ${SortOption.getAllValues().joinToString(", ")}"
+                )
+            )
+        }
+
         // Validate genre if provided
         if (genre != null && !TmdbGenreMapper.isValidGenre(genre)) {
             return ResponseEntity.badRequest().body(
@@ -90,7 +101,8 @@ class SearchController(
             genre = genre,
             minRating = minRating,
             maxRating = maxRating,
-            year = year
+            year = year,
+            sortBy = sortBy
         )
 
         val userId = getCurrentUserId()

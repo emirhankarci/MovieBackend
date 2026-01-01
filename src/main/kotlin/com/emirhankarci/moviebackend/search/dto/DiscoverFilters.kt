@@ -6,7 +6,8 @@ data class DiscoverFilters(
     val genre: String? = null,
     val minRating: Double? = null,
     val maxRating: Double? = null,
-    val year: Int? = null
+    val year: Int? = null,
+    val sortBy: String = "popularity.desc"
 ) {
     fun toJson(): String {
         val parts = mutableListOf<String>()
@@ -14,6 +15,7 @@ data class DiscoverFilters(
         minRating?.let { parts.add("\"minRating\":$it") }
         maxRating?.let { parts.add("\"maxRating\":$it") }
         year?.let { parts.add("\"year\":$it") }
+        parts.add("\"sortBy\":\"$sortBy\"")
         return "{${parts.joinToString(",")}}"
     }
     

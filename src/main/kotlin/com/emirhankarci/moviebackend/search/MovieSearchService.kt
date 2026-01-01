@@ -75,8 +75,8 @@ class MovieSearchService(
                 urlBuilder.append("&primary_release_year=$year")
             }
             
-            // Sort by popularity for better results
-            urlBuilder.append("&sort_by=popularity.desc")
+            // Sort by the specified sort option
+            urlBuilder.append("&sort_by=${filters.sortBy}")
             
             logger.info("Discovering movies with filters: {}", filters)
             val response = restTemplate.getForObject(urlBuilder.toString(), TmdbSearchResponse::class.java)
