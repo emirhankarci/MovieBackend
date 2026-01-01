@@ -1,0 +1,47 @@
+package com.emirhankarci.moviebackend.chat
+
+data class ReactionRequest(
+    val reaction: String,
+    val movieId: Int? = null
+) {
+    fun validate(): ReactionValidationResult {
+        val normalizedReaction = reaction.lowercase().trim()
+        return when {
+            normalizedReaction != "like" && normalizedReaction != "dislike" -> 
+                ReactionValidationResult.Invalid("Reaction must be 'like' or 'dislike'")
+            else -> ReactionValidationResult.Valid
+        }
+    }
+
+    fun toReactionType(): ReactionType {
+        return when (reaction.lowercase().trim()) {
+            "like" -> ReactionType.LIKE
+            "dislike" -> ReactionType.DISLIKE
+            else -> throw IllegalArgumentException("Invalid reaction type")
+        }
+    }
+}
+
+data class ReactionResponse(
+    val success: Boolean,
+    val messageId: Long,
+    val reaction: String
+)
+
+// Result type for reactions
+sealed class ReactionResult<out T> {
+    data class Success<T>(val data: T) : ReactionResult<T>()
+    data class Error(val message: String, val code: ReactionErrorCode) : ReactionResult<Nothing>()
+}
+
+enum class ReactionErrorCode {
+    USER_NOT_FOUND,
+    MESSAGE_NOT_FOUND,
+    INVALID_REACTION,
+    INTERNAL_ERROR
+}
+
+sealed class ReactionValidationResult {
+    data object Valid : ReactionValidationResult()
+    data class Invalid(val message: String) : ReactionValidationResult()
+}
