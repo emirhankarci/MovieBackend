@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/chat")
 class ChatController(
-    private val chatService: ChatService
+    private val chatService: ChatService,
+    private val suggestionService: SuggestionService,
+    private val reactionService: ReactionService
 ) {
 
     @PostMapping("/send")
@@ -67,6 +69,49 @@ class ChatController(
             is ChatResult.Success -> ResponseEntity.ok(result.data)
             is ChatResult.Error -> {
                 ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ChatErrorResponse(result.message, result.code.name))
+            }
+        }
+    }
+
+    @GetMapping("/suggestions")
+    fun getSuggestions(): ResponseEntity<Any> {
+        val username = SecurityContextHolder.getContext().authentication?.name
+            ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ChatErrorResponse("Authentication required", "UNAUTHORIZED"))
+
+        return when (val result = suggestionService.getSuggestions(username)) {
+            is SuggestionResult.Success -> ResponseEntity.ok(result.data)
+            is SuggestionResult.Error -> {
+                val status = when (result.code) {
+                    SuggestionErrorCode.USER_NOT_FOUND -> HttpStatus.NOT_FOUND
+                    SuggestionErrorCode.INTERNAL_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR
+                }
+                ResponseEntity.status(status)
+                    .body(ChatErrorResponse(result.message, result.code.name))
+            }
+        }
+    }
+
+    @PostMapping("/messages/{messageId}/reaction")
+    fun addReaction(
+        @PathVariable messageId: Long,
+        @RequestBody request: ReactionRequest
+    ): ResponseEntity<Any> {
+        val username = SecurityContextHolder.getContext().authentication?.name
+            ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ChatErrorResponse("Authentication required", "UNAUTHORIZED"))
+
+        return when (val result = reactionService.addReaction(username, messageId, request)) {
+            is ReactionResult.Success -> ResponseEntity.ok(result.data)
+            is ReactionResult.Error -> {
+                val status = when (result.code) {
+                    ReactionErrorCode.USER_NOT_FOUND -> HttpStatus.NOT_FOUND
+                    ReactionErrorCode.MESSAGE_NOT_FOUND -> HttpStatus.NOT_FOUND
+                    ReactionErrorCode.INVALID_REACTION -> HttpStatus.BAD_REQUEST
+                    ReactionErrorCode.INTERNAL_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR
+                }
+                ResponseEntity.status(status)
                     .body(ChatErrorResponse(result.message, result.code.name))
             }
         }
