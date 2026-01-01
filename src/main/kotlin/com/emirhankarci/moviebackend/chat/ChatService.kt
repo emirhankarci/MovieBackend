@@ -18,7 +18,7 @@ class ChatService(
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(ChatService::class.java)
-        private const val DAILY_MESSAGE_LIMIT = 5
+        private const val DAILY_MESSAGE_LIMIT = 50
         private val objectMapper = jacksonObjectMapper()
     }
 
@@ -93,17 +93,34 @@ class ChatService(
     private fun enrichWithTmdbData(aiResponse: String): String {
         return try {
             // Clean markdown code blocks if present
-            val cleanedResponse = aiResponse
+            var cleanedResponse = aiResponse
                 .replace("```json", "")
                 .replace("```", "")
                 .trim()
             
+            // Extract JSON if there's extra text
+            val jsonStart = cleanedResponse.indexOf('{')
+            val jsonEnd = cleanedResponse.lastIndexOf('}')
+            if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+                cleanedResponse = cleanedResponse.substring(jsonStart, jsonEnd + 1)
+            }
+            
+            logger.debug("Cleaned AI response: {}", cleanedResponse)
+            
             // Parse AI response
             val aiData = objectMapper.readValue(cleanedResponse, AiResponseData::class.java)
+            logger.info("Parsed AI data - movieTitle: {}", aiData.movieTitle)
             
             // If movieTitle exists, search TMDB
             val movieData = aiData.movieTitle?.let { title ->
-                tmdbService.searchMovie(title)
+                logger.info("Searching TMDB for: {}", title)
+                val result = tmdbService.searchMovie(title)
+                if (result == null) {
+                    logger.warn("TMDB search returned null for: {}", title)
+                } else {
+                    logger.info("TMDB found: {} (ID: {})", result.title, result.id)
+                }
+                result
             }
 
             // Build enriched response
@@ -113,9 +130,11 @@ class ChatService(
                 postMessage = aiData.postMessage
             )
 
-            objectMapper.writeValueAsString(enrichedData)
+            val result = objectMapper.writeValueAsString(enrichedData)
+            logger.debug("Enriched response: {}", result)
+            result
         } catch (e: Exception) {
-            logger.warn("Failed to enrich AI response with TMDB data: {}", e.message)
+            logger.error("Failed to enrich AI response with TMDB data: {}", e.message, e)
             // Return original response if parsing fails
             aiResponse
         }

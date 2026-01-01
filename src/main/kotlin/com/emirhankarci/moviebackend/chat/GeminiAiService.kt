@@ -7,6 +7,7 @@ import org.springframework.web.client.RestTemplate
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import tools.jackson.module.kotlin.jacksonObjectMapper
 
 @Service
 class GeminiAiService(
@@ -15,61 +16,55 @@ class GeminiAiService(
 
     companion object {
         private val logger = LoggerFactory.getLogger(GeminiAiService::class.java)
+        private val objectMapper = jacksonObjectMapper()
         private const val GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+        private const val MAX_RETRY_ATTEMPTS = 2
+        
         private const val SYSTEM_PROMPT = """
 Sen bir film ve dizi öneri asistanısın.
 
+⚠️ KRİTİK KURAL - MUTLAKA UYULMALI:
+Yanıtın SADECE ve SADECE JSON formatında olmalı. Başka hiçbir metin, açıklama veya karakter OLMAMALI.
+JSON'dan önce veya sonra HİÇBİR ŞEY yazma. Markdown code block (```) KULLANMA.
+
+ZORUNLU JSON FORMATI:
+{"preMessage":"mesaj","movieTitle":"Film Adı veya null","postMessage":"mesaj"}
+
 KURALLAR:
 1. Her zaman Türkçe yanıt ver
-2. Yanıtlarını HER ZAMAN aşağıdaki JSON formatında ver
-3. JSON dışında hiçbir metin yazma, sadece JSON döndür
+2. SADECE JSON döndür - başka hiçbir şey yazma
+3. JSON'u tek satırda yaz, güzel formatlama yapma
+4. Markdown kullanma, code block kullanma
 
 FİLM ÖNERİ KRİTERLERİ:
-- Kullanıcı belirli bir film istiyorsa → O filmin adını ver
-- Kullanıcı belirli bir tür istiyorsa → O türden uygun bir film adı ver
-- Kullanıcı belirsiz istekte bulunuyorsa (örn: "ne izlesem?") → IMDb 7.0+ ve popüler bir film adı ver
-
-ZORUNLU JSON FORMAT:
-{
-  "preMessage": "Öneri öncesi kısa mesaj (Türkçe)",
-  "movieTitle": "Film Adı (İngilizce orijinal adı)",
-  "postMessage": "Film hakkında kısa yorum (Türkçe)"
-}
+- Film önerisi istiyorsa → movieTitle'a İngilizce film adı yaz
+- Sohbet/selamlama ise → movieTitle'a null yaz
+- Film hakkında soru soruyorsa → O filmin adını movieTitle'a yaz
 
 ÖRNEKLER:
 
-Kullanıcı: "Aksiyon filmi önerir misin?"
-{
-  "preMessage": "Tabii ki! Sana bu efsane aksiyon filmini öneriyorum:",
-  "movieTitle": "The Dark Knight",
-  "postMessage": "Heath Ledger'ın Joker performansı sinema tarihine geçti."
-}
+Kullanıcı: "Aksiyon filmi öner"
+{"preMessage":"Sana harika bir aksiyon filmi öneriyorum:","movieTitle":"The Dark Knight","postMessage":"Heath Ledger'ın efsane Joker performansıyla sinema tarihine geçti."}
 
 Kullanıcı: "Ne izlesem?"
-{
-  "preMessage": "Sana harika bir film önerim var:",
-  "movieTitle": "Gone Girl",
-  "postMessage": "David Fincher'ın ustalık eseri. Seni sonuna kadar tahmin edemeyeceğin bir gerilim."
-}
+{"preMessage":"Bu hafta için mükemmel bir öneri:","movieTitle":"Inception","postMessage":"Christopher Nolan'ın zihin büken başyapıtı."}
 
-Kullanıcı: "Inception nasıl?"
-{
-  "preMessage": "Inception hakkında bilgi vereyim:",
-  "movieTitle": "Inception",
-  "postMessage": "Christopher Nolan'ın başyapıtı. Rüya içinde rüya konseptiyle zihin büken bir deneyim."
-}
+Kullanıcı: "Merhaba"
+{"preMessage":"Merhaba! Ben senin film asistanınım.","movieTitle":null,"postMessage":"Hangi tür film izlemek istersin?"}
 
-Kullanıcı: "Merhaba" veya film dışı sohbet
-{
-  "preMessage": "Merhaba! Ben senin film asistanınım.",
-  "movieTitle": null,
-  "postMessage": "Hangi tür film izlemek istersin? Aksiyon, komedi, korku, romantik... Ne istersen söyle!"
-}
+Kullanıcı: "Interstellar nasıl bir film?"
+{"preMessage":"Interstellar hakkında bilgi vereyim:","movieTitle":"Interstellar","postMessage":"Uzay ve zaman üzerine epik bir yolculuk. Görsel efektleri ve müziği muhteşem."}
 
-ÖNEMLİ: 
-- movieTitle null olabilir (sohbet mesajlarında)
-- Film adını İNGİLİZCE orijinal adıyla yaz (TMDB'de arama yapılacak)
-- JSON formatı dışında ASLA metin yazma
+⚠️ SON UYARI: Cevabın MUTLAKA { ile başlamalı ve } ile bitmeli. Başka karakter OLMAMALI!
+"""
+
+        private const val RETRY_PROMPT = """
+ÖNCEKİ CEVABIN HATALI! JSON formatında değildi.
+
+TEKRAR EDİYORUM: SADECE JSON döndür. Başka hiçbir şey yazma.
+Cevabın { ile başlamalı ve } ile bitmeli.
+
+Format: {"preMessage":"...","movieTitle":"..." veya null,"postMessage":"..."}
 """
     }
 
@@ -77,25 +72,57 @@ Kullanıcı: "Merhaba" veya film dışı sohbet
         ?: throw IllegalStateException("GEMINI_API_KEY environment variable must be set!")
 
     override fun generateResponse(conversationContext: List<ChatMessage>): AiResult<String> {
+        var lastResponse: String? = null
+        
+        for (attempt in 1..MAX_RETRY_ATTEMPTS) {
+            val result = callGeminiApi(conversationContext, isRetry = attempt > 1)
+            
+            when (result) {
+                is AiResult.Success -> {
+                    val response = result.data
+                    lastResponse = response
+                    
+                    // Validate JSON format
+                    val validatedResponse = validateAndCleanResponse(response)
+                    if (validatedResponse != null) {
+                        logger.info("Valid JSON response received on attempt {}", attempt)
+                        return AiResult.Success(validatedResponse)
+                    }
+                    
+                    logger.warn("Invalid JSON response on attempt {}: {}", attempt, response.take(100))
+                }
+                is AiResult.Error -> {
+                    logger.error("API error on attempt {}: {}", attempt, result.message)
+                    if (attempt == MAX_RETRY_ATTEMPTS) {
+                        return result
+                    }
+                }
+            }
+        }
+        
+        // All retries failed - create fallback response
+        logger.warn("All retry attempts failed, creating fallback response")
+        val fallbackResponse = createFallbackResponse(lastResponse)
+        return AiResult.Success(fallbackResponse)
+    }
+
+    private fun callGeminiApi(conversationContext: List<ChatMessage>, isRetry: Boolean): AiResult<String> {
         return try {
-            val requestBody = buildRequestBody(conversationContext)
+            val requestBody = buildRequestBody(conversationContext, isRetry)
             val headers = HttpHeaders().apply {
                 contentType = MediaType.APPLICATION_JSON
             }
             val entity = HttpEntity(requestBody, headers)
             val url = "$GEMINI_API_URL?key=$apiKey"
 
-            logger.debug("Calling Gemini API with {} messages in context", conversationContext.size)
+            logger.debug("Calling Gemini API (retry={})", isRetry)
             
             val response = restTemplate.postForObject(url, entity, GeminiResponse::class.java)
-            
             val text = response?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
             
             if (text != null) {
-                logger.info("Gemini API response received successfully")
                 AiResult.Success(text)
             } else {
-                logger.warn("Gemini API returned empty response")
                 AiResult.Error("AI returned empty response", AiErrorCode.INVALID_RESPONSE)
             }
         } catch (e: RestClientException) {
@@ -114,7 +141,100 @@ Kullanıcı: "Merhaba" veya film dışı sohbet
         }
     }
 
-    private fun buildRequestBody(conversationContext: List<ChatMessage>): GeminiRequest {
+
+    private fun validateAndCleanResponse(response: String): String? {
+        return try {
+            // Clean the response
+            var cleaned = response
+                .replace("```json", "")
+                .replace("```", "")
+                .trim()
+            
+            // Try to extract JSON if there's extra text
+            val jsonStart = cleaned.indexOf('{')
+            val jsonEnd = cleaned.lastIndexOf('}')
+            
+            if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+                cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+            }
+            
+            // Validate by parsing
+            val parsed = objectMapper.readTree(cleaned)
+            
+            // Check required fields exist
+            if (parsed.has("preMessage") && parsed.has("postMessage")) {
+                cleaned
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            logger.debug("JSON validation failed: {}", e.message)
+            null
+        }
+    }
+
+    private fun createFallbackResponse(lastResponse: String?): String {
+        // Try to extract movie title from plain text response
+        val movieTitle = extractMovieTitleFromText(lastResponse)
+        
+        val fallback = if (lastResponse != null) {
+            // Use the plain text as preMessage
+            val cleanedText = lastResponse
+                .replace("```json", "")
+                .replace("```", "")
+                .replace("{", "")
+                .replace("}", "")
+                .replace("\"", "")
+                .trim()
+                .take(500) // Limit length
+            
+            mapOf(
+                "preMessage" to cleanedText,
+                "movieTitle" to movieTitle,
+                "postMessage" to "Film hakkında daha fazla bilgi için sorabilirsin!"
+            )
+        } else {
+            mapOf(
+                "preMessage" to "Özür dilerim, bir sorun oluştu.",
+                "movieTitle" to null,
+                "postMessage" to "Lütfen tekrar dener misin?"
+            )
+        }
+        
+        return objectMapper.writeValueAsString(fallback)
+    }
+
+    private fun extractMovieTitleFromText(text: String?): String? {
+        if (text == null) return null
+        
+        // Common patterns to find movie titles
+        val patterns = listOf(
+            // "Film Adı" pattern (quoted)
+            """"([^"]+)"""".toRegex(),
+            // 'Film Adı' pattern (single quoted)
+            """'([^']+)'""".toRegex(),
+            // "movieTitle": "Film Adı" pattern
+            """"movieTitle"\s*:\s*"([^"]+)"""".toRegex(),
+            // Common movie title indicators
+            """(?:öneri(?:yo)?r?u?m|tavsiye ederim|izlemeni öneririm)[:\s]+([A-Z][^.!?\n]+)""".toRegex(RegexOption.IGNORE_CASE)
+        )
+        
+        for (pattern in patterns) {
+            val match = pattern.find(text)
+            if (match != null && match.groupValues.size > 1) {
+                val title = match.groupValues[1].trim()
+                // Validate it looks like a movie title (not too long, not empty)
+                if (title.length in 2..100 && !title.contains("\n")) {
+                    logger.debug("Extracted movie title from text: {}", title)
+                    return title
+                }
+            }
+        }
+        
+        return null
+    }
+
+    private fun buildRequestBody(conversationContext: List<ChatMessage>, isRetry: Boolean): GeminiRequest {
         val contents = mutableListOf<GeminiContent>()
         
         // Add system instruction as first user message
@@ -124,15 +244,23 @@ Kullanıcı: "Merhaba" veya film dışı sohbet
         ))
         contents.add(GeminiContent(
             role = "model",
-            parts = listOf(GeminiPart("Anladım! Film ve dizi konularında size yardımcı olmaya hazırım."))
+            parts = listOf(GeminiPart("""{"preMessage":"Anladım!","movieTitle":null,"postMessage":"Film önerisi için hazırım."}"""))
         ))
         
-        // Add conversation history (last 10 messages, reversed to chronological order)
+        // Add conversation history
         val recentMessages = conversationContext.takeLast(10)
         recentMessages.forEach { message ->
             contents.add(GeminiContent(
                 role = if (message.role == MessageRole.USER) "user" else "model",
                 parts = listOf(GeminiPart(message.content))
+            ))
+        }
+        
+        // Add retry prompt if this is a retry attempt
+        if (isRetry) {
+            contents.add(GeminiContent(
+                role = "user",
+                parts = listOf(GeminiPart(RETRY_PROMPT.trimIndent()))
             ))
         }
         

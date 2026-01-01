@@ -18,12 +18,40 @@ class TmdbService(
 
     fun searchMovie(movieTitle: String): MovieData? {
         return try {
-            val url = "$TMDB_API_URL/search/movie?api_key=$apiKey&query=${movieTitle.encodeUrl()}&language=tr-TR"
+            // First try with Turkish language
+            var movie = searchMovieWithLanguage(movieTitle, "tr-TR")
+            
+            // If not found, try with English
+            if (movie == null) {
+                logger.info("Movie not found in Turkish, trying English for: {}", movieTitle)
+                movie = searchMovieWithLanguage(movieTitle, "en-US")
+            }
+            
+            // If still not found, try without year/extra info
+            if (movie == null && movieTitle.contains("(")) {
+                val cleanTitle = movieTitle.substringBefore("(").trim()
+                logger.info("Trying with cleaned title: {}", cleanTitle)
+                movie = searchMovieWithLanguage(cleanTitle, "en-US")
+            }
+            
+            movie
+        } catch (e: Exception) {
+            logger.error("TMDB search failed for '{}': {}", movieTitle, e.message)
+            null
+        }
+    }
+
+    private fun searchMovieWithLanguage(movieTitle: String, language: String): MovieData? {
+        return try {
+            val url = "$TMDB_API_URL/search/movie?api_key=$apiKey&query=${movieTitle.encodeUrl()}&language=$language"
+            logger.debug("TMDB search URL: {}", url.replace(apiKey, "***"))
+            
             val response = restTemplate.getForObject(url, TmdbSearchResponse::class.java)
+            logger.debug("TMDB response: {} results", response?.results?.size ?: 0)
             
             val movie = response?.results?.firstOrNull()
             if (movie != null) {
-                logger.info("Found movie: {} (ID: {})", movie.title, movie.id)
+                logger.info("Found movie: {} (ID: {}) with language {}", movie.title, movie.id, language)
                 MovieData(
                     id = movie.id,
                     title = movie.title,
@@ -32,11 +60,11 @@ class TmdbService(
                     voteCount = movie.vote_count
                 )
             } else {
-                logger.warn("Movie not found: {}", movieTitle)
+                logger.debug("Movie not found with language {}: {}", language, movieTitle)
                 null
             }
         } catch (e: Exception) {
-            logger.error("TMDB search failed for '{}': {}", movieTitle, e.message)
+            logger.error("TMDB search failed for '{}' ({}): {}", movieTitle, language, e.message)
             null
         }
     }
