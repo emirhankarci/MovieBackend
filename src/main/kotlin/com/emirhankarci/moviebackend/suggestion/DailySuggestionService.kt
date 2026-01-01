@@ -143,15 +143,8 @@ class DailySuggestionService(
         while (validatedMovies.size < REQUIRED_MOVIES && attempts < maxAttempts) {
             attempts++
             
-            // Call AI
-            val chatMessage = ChatMessage(
-                id = null,
-                user = userRepository.findAll().first(), // Dummy user for AI call
-                content = prompt,
-                role = MessageRole.USER
-            )
-            
-            val aiResult = aiService.generateResponse(listOf(chatMessage))
+            // Call AI with suggestion-specific method
+            val aiResult = aiService.generateSuggestions(prompt)
             
             when (aiResult) {
                 is AiResult.Success -> {

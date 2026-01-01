@@ -2,6 +2,12 @@ package com.emirhankarci.moviebackend.chat
 
 interface AiService {
     fun generateResponse(conversationContext: List<ChatMessage>): AiResult<String>
+    
+    /**
+     * Generate movie suggestions based on a prompt.
+     * Returns raw JSON in recommendations format.
+     */
+    fun generateSuggestions(prompt: String): AiResult<String>
 }
 
 sealed class AiResult<out T> {

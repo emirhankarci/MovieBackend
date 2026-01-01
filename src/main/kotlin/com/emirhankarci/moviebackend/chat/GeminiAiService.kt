@@ -234,6 +234,123 @@ Format: {"preMessage":"...","movieTitle":"..." veya null,"postMessage":"..."}
         return null
     }
 
+    override fun generateSuggestions(prompt: String): AiResult<String> {
+        var lastResponse: String? = null
+        
+        for (attempt in 1..MAX_RETRY_ATTEMPTS) {
+            val result = callGeminiApiForSuggestions(prompt, isRetry = attempt > 1)
+            
+            when (result) {
+                is AiResult.Success -> {
+                    val response = result.data
+                    lastResponse = response
+                    
+                    // Validate JSON format for suggestions
+                    val validatedResponse = validateSuggestionResponse(response)
+                    if (validatedResponse != null) {
+                        logger.info("Valid suggestion JSON response received on attempt {}", attempt)
+                        return AiResult.Success(validatedResponse)
+                    }
+                    
+                    logger.warn("Invalid suggestion JSON response on attempt {}: {}", attempt, response.take(100))
+                }
+                is AiResult.Error -> {
+                    logger.error("API error on attempt {}: {}", attempt, result.message)
+                    if (attempt == MAX_RETRY_ATTEMPTS) {
+                        return result
+                    }
+                }
+            }
+        }
+        
+        // All retries failed - try to extract titles from last response
+        logger.warn("All suggestion retry attempts failed")
+        return if (lastResponse != null) {
+            AiResult.Success(lastResponse)
+        } else {
+            AiResult.Error("Could not generate suggestions", AiErrorCode.INVALID_RESPONSE)
+        }
+    }
+
+    private fun callGeminiApiForSuggestions(prompt: String, isRetry: Boolean): AiResult<String> {
+        return try {
+            val contents = mutableListOf<GeminiContent>()
+            
+            // Add the suggestion prompt
+            contents.add(GeminiContent(
+                role = "user",
+                parts = listOf(GeminiPart(prompt))
+            ))
+            
+            // Add retry instruction if needed
+            if (isRetry) {
+                contents.add(GeminiContent(
+                    role = "user",
+                    parts = listOf(GeminiPart("""
+ÖNCEKİ CEVABIN HATALI! Sadece JSON döndür.
+Format: {"recommendations": [{"title": "Film 1"}, {"title": "Film 2"}, {"title": "Film 3"}, {"title": "Film 4"}]}
+Markdown code block KULLANMA. Sadece JSON.
+                    """.trimIndent()))
+                ))
+            }
+            
+            val requestBody = GeminiRequest(contents = contents)
+            val headers = HttpHeaders().apply {
+                contentType = MediaType.APPLICATION_JSON
+            }
+            val entity = HttpEntity(requestBody, headers)
+            val url = "$GEMINI_API_URL?key=$apiKey"
+
+            logger.debug("Calling Gemini API for suggestions (retry={})", isRetry)
+            
+            val response = restTemplate.postForObject(url, entity, GeminiResponse::class.java)
+            val text = response?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+            
+            if (text != null) {
+                AiResult.Success(text)
+            } else {
+                AiResult.Error("AI returned empty response", AiErrorCode.INVALID_RESPONSE)
+            }
+        } catch (e: RestClientException) {
+            logger.error("Gemini API call failed: {}", e.message)
+            AiResult.Error("AI service error: ${e.message}", AiErrorCode.API_ERROR)
+        } catch (e: Exception) {
+            logger.error("Unexpected error calling Gemini API: {}", e.message)
+            AiResult.Error("Unexpected AI error", AiErrorCode.API_ERROR)
+        }
+    }
+
+    private fun validateSuggestionResponse(response: String): String? {
+        return try {
+            // Clean the response
+            var cleaned = response
+                .replace("```json", "")
+                .replace("```", "")
+                .trim()
+            
+            // Try to extract JSON if there's extra text
+            val jsonStart = cleaned.indexOf('{')
+            val jsonEnd = cleaned.lastIndexOf('}')
+            
+            if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+                cleaned = cleaned.substring(jsonStart, jsonEnd + 1)
+            }
+            
+            // Validate by parsing
+            val parsed = objectMapper.readTree(cleaned)
+            
+            // Check if it has recommendations array
+            if (parsed.has("recommendations") && parsed.get("recommendations").isArray) {
+                cleaned
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            logger.debug("Suggestion JSON validation failed: {}", e.message)
+            null
+        }
+    }
+
     private fun buildRequestBody(conversationContext: List<ChatMessage>, isRetry: Boolean): GeminiRequest {
         val contents = mutableListOf<GeminiContent>()
         
