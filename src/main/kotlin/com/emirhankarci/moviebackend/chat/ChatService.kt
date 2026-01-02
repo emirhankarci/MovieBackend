@@ -109,10 +109,18 @@ class ChatService(
             
             // Parse AI response
             val aiData = objectMapper.readValue(cleanedResponse, AiResponseData::class.java)
-            logger.info("Parsed AI data - movieTitle: {}", aiData.movieTitle)
+            
+            // If movieTitle is null, try to extract from preMessage or postMessage
+            var movieTitle = aiData.movieTitle
+            if (movieTitle.isNullOrBlank()) {
+                movieTitle = extractMovieTitleFromMessages(aiData.preMessage, aiData.postMessage)
+                logger.info("Extracted movie title from messages: {}", movieTitle)
+            }
+            
+            logger.info("Parsed AI data - movieTitle: {}", movieTitle)
             
             // If movieTitle exists, search TMDB
-            val movieData = aiData.movieTitle?.let { title ->
+            val movieData = movieTitle?.let { title ->
                 logger.info("Searching TMDB for: {}", title)
                 val result = tmdbService.searchMovie(title)
                 if (result == null) {
@@ -138,6 +146,33 @@ class ChatService(
             // Return original response if parsing fails
             aiResponse
         }
+    }
+    
+    private fun extractMovieTitleFromMessages(preMessage: String, postMessage: String): String? {
+        val combinedText = "$preMessage $postMessage"
+        
+        // Common patterns to find movie titles in Turkish text
+        val patterns = listOf(
+            // Quoted titles
+            """"([^"]+)"""".toRegex(),
+            """'([^']+)'""".toRegex(),
+            // Common Turkish phrases followed by movie name
+            """(?:öneriyorum|öneririm|tavsiye ederim|izle|izlemeni)[:\s]+([A-Z][A-Za-z0-9\s:'-]+)""".toRegex(RegexOption.IGNORE_CASE),
+            // English movie title pattern (capitalized words)
+            """(?:The|A)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*""".toRegex()
+        )
+        
+        for (pattern in patterns) {
+            val match = pattern.find(combinedText)
+            if (match != null) {
+                val title = if (match.groupValues.size > 1) match.groupValues[1].trim() else match.value.trim()
+                if (title.length in 2..100 && !title.contains("\n")) {
+                    return title
+                }
+            }
+        }
+        
+        return null
     }
 
     fun getConversationHistory(username: String): ChatResult<List<ChatMessageResponse>> {

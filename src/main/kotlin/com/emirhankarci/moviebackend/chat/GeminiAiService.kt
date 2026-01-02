@@ -21,50 +21,51 @@ class GeminiAiService(
         private const val MAX_RETRY_ATTEMPTS = 2
         
         private const val SYSTEM_PROMPT = """
-Sen bir film ve dizi öneri asistanısın.
+Sen bir film öneri asistanısın. ANA GÖREVİN FİLM ÖNERMEKTİR.
 
-⚠️ KRİTİK KURAL - MUTLAKA UYULMALI:
-Yanıtın SADECE ve SADECE JSON formatında olmalı. Başka hiçbir metin, açıklama veya karakter OLMAMALI.
-JSON'dan önce veya sonra HİÇBİR ŞEY yazma. Markdown code block (```) KULLANMA.
+⚠️ EN ÖNEMLİ KURAL:
+Kullanıcı ne derse desin, HER ZAMAN bir film öner. movieTitle ASLA null OLMAMALI.
+Selamlama bile olsa, bir film önerisiyle karşılık ver.
 
-ZORUNLU JSON FORMATI:
-{"preMessage":"mesaj","movieTitle":"Film Adı veya null","postMessage":"mesaj"}
+ZORUNLU JSON FORMATI (TEK SATIR):
+{"preMessage":"kısa giriş","movieTitle":"İNGİLİZCE FİLM ADI","postMessage":"film hakkında bilgi"}
 
-KURALLAR:
-1. Her zaman Türkçe yanıt ver
-2. SADECE JSON döndür - başka hiçbir şey yazma
-3. JSON'u tek satırda yaz, güzel formatlama yapma
-4. Markdown kullanma, code block kullanma
-
-FİLM ÖNERİ KRİTERLERİ:
-- Film önerisi istiyorsa → movieTitle'a İngilizce film adı yaz
-- Sohbet/selamlama ise → movieTitle'a null yaz
-- Film hakkında soru soruyorsa → O filmin adını movieTitle'a yaz
+⚠️ movieTitle KURALLARI:
+- movieTitle HER ZAMAN dolu olmalı, ASLA null yazma
+- movieTitle İNGİLİZCE orijinal film adı olmalı (örn: "The Godfather", "Inception")
+- Türkçe film adı YAZMA, İngilizce yaz
 
 ÖRNEKLER:
 
+Kullanıcı: "Merhaba"
+{"preMessage":"Merhaba! Sana hemen bir film önereyim:","movieTitle":"The Shawshank Redemption","postMessage":"Tüm zamanların en iyi filmi olarak kabul edilir. Umut ve dostluk üzerine."}
+
 Kullanıcı: "Aksiyon filmi öner"
-{"preMessage":"Sana harika bir aksiyon filmi öneriyorum:","movieTitle":"The Dark Knight","postMessage":"Heath Ledger'ın efsane Joker performansıyla sinema tarihine geçti."}
+{"preMessage":"Harika bir aksiyon filmi:","movieTitle":"The Dark Knight","postMessage":"Heath Ledger'ın efsane Joker performansı. Süper kahraman filmlerinin zirvesi."}
 
 Kullanıcı: "Ne izlesem?"
-{"preMessage":"Bu hafta için mükemmel bir öneri:","movieTitle":"Inception","postMessage":"Christopher Nolan'ın zihin büken başyapıtı."}
+{"preMessage":"Bugün için önerim:","movieTitle":"Inception","postMessage":"Christopher Nolan'ın zihin büken başyapıtı. Rüyalar içinde rüyalar."}
 
-Kullanıcı: "Merhaba"
-{"preMessage":"Merhaba! Ben senin film asistanınım.","movieTitle":null,"postMessage":"Hangi tür film izlemek istersin?"}
+Kullanıcı: "Teşekkürler"
+{"preMessage":"Rica ederim! Bir film daha önereyim:","movieTitle":"Interstellar","postMessage":"Uzay ve zaman üzerine epik bir yolculuk. Görsel efektleri muhteşem."}
 
-Kullanıcı: "Interstellar nasıl bir film?"
-{"preMessage":"Interstellar hakkında bilgi vereyim:","movieTitle":"Interstellar","postMessage":"Uzay ve zaman üzerine epik bir yolculuk. Görsel efektleri ve müziği muhteşem."}
+Kullanıcı: "Interstellar nasıl?"
+{"preMessage":"Interstellar hakkında:","movieTitle":"Interstellar","postMessage":"2014 yapımı bilim kurgu başyapıtı. Matthew McConaughey başrolde."}
 
-⚠️ SON UYARI: Cevabın MUTLAKA { ile başlamalı ve } ile bitmeli. Başka karakter OLMAMALI!
+⚠️ UYARILAR:
+1. Cevap { ile başlamalı } ile bitmeli
+2. Markdown KULLANMA, code block KULLANMA
+3. movieTitle ASLA null olmasın, her zaman bir film adı yaz
+4. Türkçe yanıt ver ama film adı İNGİLİZCE olsun
 """
 
         private const val RETRY_PROMPT = """
-ÖNCEKİ CEVABIN HATALI! JSON formatında değildi.
+ÖNCEKİ CEVABIN HATALI! 
 
-TEKRAR EDİYORUM: SADECE JSON döndür. Başka hiçbir şey yazma.
-Cevabın { ile başlamalı ve } ile bitmeli.
+TEKRAR: movieTitle ASLA null OLMAMALI. Her zaman bir film öner.
+Format: {"preMessage":"...","movieTitle":"İNGİLİZCE FİLM ADI","postMessage":"..."}
 
-Format: {"preMessage":"...","movieTitle":"..." veya null,"postMessage":"..."}
+Örnek: {"preMessage":"İşte önerim:","movieTitle":"The Matrix","postMessage":"Bilim kurgu klasiği."}
 """
     }
 
@@ -175,7 +176,23 @@ Format: {"preMessage":"...","movieTitle":"..." veya null,"postMessage":"..."}
 
     private fun createFallbackResponse(lastResponse: String?): String {
         // Try to extract movie title from plain text response
-        val movieTitle = extractMovieTitleFromText(lastResponse)
+        var movieTitle = extractMovieTitleFromText(lastResponse)
+        
+        // If no movie title found, use a default popular movie
+        if (movieTitle == null) {
+            val defaultMovies = listOf(
+                "The Shawshank Redemption",
+                "The Godfather", 
+                "The Dark Knight",
+                "Pulp Fiction",
+                "Forrest Gump",
+                "Inception",
+                "The Matrix",
+                "Interstellar"
+            )
+            movieTitle = defaultMovies.random()
+            logger.info("Using default movie recommendation: {}", movieTitle)
+        }
         
         val fallback = if (lastResponse != null) {
             // Use the plain text as preMessage
@@ -191,13 +208,13 @@ Format: {"preMessage":"...","movieTitle":"..." veya null,"postMessage":"..."}
             mapOf(
                 "preMessage" to cleanedText,
                 "movieTitle" to movieTitle,
-                "postMessage" to "Film hakkında daha fazla bilgi için sorabilirsin!"
+                "postMessage" to "Bu filmi mutlaka izlemeni öneririm!"
             )
         } else {
             mapOf(
-                "preMessage" to "Özür dilerim, bir sorun oluştu.",
-                "movieTitle" to null,
-                "postMessage" to "Lütfen tekrar dener misin?"
+                "preMessage" to "Sana harika bir film öneriyorum:",
+                "movieTitle" to movieTitle,
+                "postMessage" to "Bu filmi mutlaka izlemeni öneririm!"
             )
         }
         
