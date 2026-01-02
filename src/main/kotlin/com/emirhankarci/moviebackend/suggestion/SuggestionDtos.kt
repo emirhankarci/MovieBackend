@@ -14,7 +14,27 @@ data class MovieSuggestion(
 data class DailySuggestionsResponse(
     val suggestions: List<MovieSuggestion>,
     val cached: Boolean,
-    val generatedAt: LocalDate
+    val generatedAt: LocalDate,
+    val metadata: SuggestionMetadata? = null
+)
+
+/**
+ * Metadata about how suggestions were generated.
+ */
+data class SuggestionMetadata(
+    val personalizationTier: String,
+    val dataSources: List<String>,
+    val profileSummary: ProfileSummary?
+)
+
+/**
+ * Summary of user's profile data used for personalization.
+ */
+data class ProfileSummary(
+    val watchedCount: Int,
+    val watchlistCount: Int,
+    val hasPreferences: Boolean,
+    val topGenres: List<String>?
 )
 
 // Result sealed class for service layer

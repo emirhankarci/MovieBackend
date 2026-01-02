@@ -1,7 +1,6 @@
 package com.emirhankarci.moviebackend.suggestion
 
 import com.emirhankarci.moviebackend.chat.*
-import com.emirhankarci.moviebackend.movie.WatchlistRepository
 import com.emirhankarci.moviebackend.user.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -11,12 +10,12 @@ import java.time.LocalDate
 @Service
 class DailySuggestionService(
     private val suggestionRepository: DailySuggestionRepository,
-    private val watchlistRepository: WatchlistRepository,
     private val userRepository: UserRepository,
     private val aiService: AiService,
     private val tmdbService: TmdbService,
     private val promptBuilder: SuggestionPromptBuilder,
-    private val responseParser: SuggestionResponseParser
+    private val responseParser: SuggestionResponseParser,
+    private val userProfileAggregator: UserProfileAggregator
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(DailySuggestionService::class.java)
@@ -76,21 +75,17 @@ class DailySuggestionService(
         username: String,
         today: LocalDate
     ): SuggestionResult<DailySuggestionsResponse> {
-        // Get user's watchlist for context
-        val watchlist = watchlistRepository.findByUserId(userId)
-        val watchlistTitles = watchlist.map { it.movieTitle }
+        // Aggregate user profile with all data sources
+        val profile = userProfileAggregator.aggregateUserProfile(userId)
+        logger.info("User {} profile: tier={}, watched={}, watchlist={}, hasPrefs={}",
+            username, profile.personalizationTier, profile.watchedMovies.size,
+            profile.watchlistMovies.size, profile.preferences != null)
         
-        // Build prompt based on watchlist
-        val prompt = if (watchlistTitles.isEmpty()) {
-            logger.info("User {} has empty watchlist, using generic prompt", username)
-            promptBuilder.buildGenericPrompt()
-        } else {
-            logger.info("User {} has {} movies in watchlist", username, watchlistTitles.size)
-            promptBuilder.buildPersonalizedPrompt(watchlistTitles)
-        }
+        // Build prompt based on full profile
+        val prompt = promptBuilder.buildPromptFromProfile(profile)
 
-        // Get AI recommendations
-        val validatedMovies = getValidatedMoviesFromAI(prompt, watchlistTitles)
+        // Get AI recommendations with enhanced exclusion
+        val validatedMovies = getValidatedMoviesFromAI(prompt, profile.exclusionList)
         
         if (validatedMovies.size < REQUIRED_MOVIES) {
             logger.error("Could not get {} valid movies for user {}", REQUIRED_MOVIES, username)
@@ -112,7 +107,7 @@ class DailySuggestionService(
         suggestionRepository.save(suggestion)
         logger.info("Saved daily suggestions for user {}: {}", username, movieIds)
 
-        // Build response
+        // Build response with metadata
         val suggestions = validatedMovies.take(REQUIRED_MOVIES).map { movie ->
             MovieSuggestion(
                 id = movie.id,
@@ -122,19 +117,23 @@ class DailySuggestionService(
                 voteCount = movie.voteCount
             )
         }
+        
+        val metadata = buildMetadata(profile)
 
         return SuggestionResult.Success(
             DailySuggestionsResponse(
                 suggestions = suggestions,
                 cached = false,
-                generatedAt = today
+                generatedAt = today,
+                metadata = metadata
             )
         )
     }
 
+
     private fun getValidatedMoviesFromAI(
         prompt: String,
-        excludeTitles: List<String>
+        exclusionList: ExclusionList
     ): List<MovieData> {
         val validatedMovies = mutableListOf<MovieData>()
         var attempts = 0
@@ -143,7 +142,6 @@ class DailySuggestionService(
         while (validatedMovies.size < REQUIRED_MOVIES && attempts < maxAttempts) {
             attempts++
             
-            // Call AI with suggestion-specific method
             val aiResult = aiService.generateSuggestions(prompt)
             
             when (aiResult) {
@@ -153,13 +151,13 @@ class DailySuggestionService(
                     for (title in titles) {
                         if (validatedMovies.size >= REQUIRED_MOVIES) break
                         
-                        // Skip if already in watchlist
-                        if (excludeTitles.any { it.equals(title, ignoreCase = true) }) {
-                            logger.debug("Skipping {} - already in watchlist", title)
+                        // Skip if in exclusion list (watched, watchlist, or disliked)
+                        if (exclusionList.containsTitle(title)) {
+                            logger.debug("Skipping {} - in exclusion list", title)
                             continue
                         }
                         
-                        // Skip if already validated
+                        // Skip if already validated in this session
                         if (validatedMovies.any { it.title.equals(title, ignoreCase = true) }) {
                             logger.debug("Skipping {} - already validated", title)
                             continue
@@ -167,12 +165,22 @@ class DailySuggestionService(
                         
                         // Search and validate
                         val movie = tmdbService.searchMovie(title)
-                        if (movie != null && tmdbService.validateMovieQuality(movie)) {
-                            validatedMovies.add(movie)
-                            logger.info("Validated movie: {} (rating: {}, votes: {})", 
-                                movie.title, movie.rating, movie.voteCount)
+                        if (movie != null) {
+                            // Additional check: exclude by movie ID
+                            if (exclusionList.containsMovieId(movie.id)) {
+                                logger.debug("Skipping {} (ID: {}) - movie ID in exclusion list", title, movie.id)
+                                continue
+                            }
+                            
+                            if (tmdbService.validateMovieQuality(movie)) {
+                                validatedMovies.add(movie)
+                                logger.info("Validated movie: {} (rating: {}, votes: {})", 
+                                    movie.title, movie.rating, movie.voteCount)
+                            } else {
+                                logger.debug("Movie {} failed quality validation", title)
+                            }
                         } else {
-                            logger.debug("Movie {} failed validation or not found", title)
+                            logger.debug("Movie {} not found in TMDB", title)
                         }
                     }
                 }
@@ -183,5 +191,28 @@ class DailySuggestionService(
         }
 
         return validatedMovies
+    }
+    
+    private fun buildMetadata(profile: UserProfile): SuggestionMetadata {
+        val dataSources = mutableListOf<String>()
+        if (profile.watchedMovies.isNotEmpty()) dataSources.add("watched_movies")
+        if (profile.watchlistMovies.isNotEmpty()) dataSources.add("watchlist")
+        if (profile.preferences != null) dataSources.add("preferences")
+        if (profile.likedMovieIds.isNotEmpty() || profile.dislikedMovieIds.isNotEmpty()) {
+            dataSources.add("reactions")
+        }
+        
+        val profileSummary = ProfileSummary(
+            watchedCount = profile.watchedMovies.size,
+            watchlistCount = profile.watchlistMovies.size,
+            hasPreferences = profile.preferences != null,
+            topGenres = profile.preferences?.genres?.take(3)
+        )
+        
+        return SuggestionMetadata(
+            personalizationTier = profile.personalizationTier.name,
+            dataSources = dataSources,
+            profileSummary = profileSummary
+        )
     }
 }

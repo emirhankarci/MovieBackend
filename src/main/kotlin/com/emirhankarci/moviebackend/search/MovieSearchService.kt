@@ -93,7 +93,7 @@ class MovieSearchService(
             var movies = response?.results?.map { it.toMovieDto() } ?: emptyList()
             
             // Apply quality filter with sort-specific thresholds
-            movies = qualityFilter.filter(movies, sortType)
+            movies = qualityFilter.filter(movies, sortType, filters.sortBy)
             
             // Apply rating range filters (TMDB doesn't support exact rating filters well)
             movies = applyRatingFilters(movies, filters)

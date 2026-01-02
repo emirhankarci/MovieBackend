@@ -20,7 +20,8 @@ object SortParameterBuilder {
     fun buildParameters(sortBy: String): Map<String, String> {
         return when (sortBy) {
             "release_date.desc" -> mapOf(
-                "release_date.lte" to LocalDate.now().format(dateFormatter)
+                "release_date.lte" to LocalDate.now().format(dateFormatter),
+                "vote_count.gte" to "50"  // Yeni filmler için düşük threshold
             )
             "release_date.asc" -> mapOf(
                 "release_date.gte" to "1990-01-01"
@@ -29,7 +30,7 @@ object SortParameterBuilder {
                 "vote_count.gte" to "500"
             )
             "vote_average.asc" -> mapOf(
-                "vote_count.gte" to "100"
+                "vote_count.gte" to "100"  // Düşük puanlı filmler için
             )
             // popularity.* ve vote_count.* için ek parametre gerekmez
             else -> emptyMap()
