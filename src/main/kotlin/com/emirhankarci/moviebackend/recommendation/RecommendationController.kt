@@ -8,7 +8,8 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/recommendations")
 class RecommendationController(
-    private val recommendationService: RecommendationService
+    private val recommendationService: RecommendationService,
+    private val collectionBasedRecommendationService: CollectionBasedRecommendationService
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(RecommendationController::class.java)
@@ -42,6 +43,47 @@ class RecommendationController(
                 )
             }
             is RecommendationResult.Error -> {
+                val status = when (result.code) {
+                    "USER_NOT_FOUND" -> 404
+                    "EXTERNAL_SERVICE_ERROR" -> 503
+                    else -> 500
+                }
+                ResponseEntity.status(status).body(
+                    RecommendationErrorResponse(
+                        error = result.code,
+                        message = result.message
+                    )
+                )
+            }
+        }
+    }
+
+    /**
+     * Get collection-based movie recommendations for the authenticated user
+     * Randomly selects a collection and finds similar movies
+     */
+    @GetMapping("/collection-based")
+    fun getCollectionBasedRecommendations(): ResponseEntity<Any> {
+        val username = SecurityContextHolder.getContext().authentication?.name
+            ?: return ResponseEntity.status(401).body(
+                RecommendationErrorResponse(
+                    error = "UNAUTHORIZED",
+                    message = "Oturum açmanız gerekiyor"
+                )
+            )
+
+        logger.info("Getting collection-based recommendations for user: {}", username)
+
+        return when (val result = collectionBasedRecommendationService.getCollectionBasedRecommendations(username)) {
+            is CollectionRecommendationResult.Success -> {
+                ResponseEntity.ok(result.response)
+            }
+            is CollectionRecommendationResult.Empty -> {
+                ResponseEntity.ok(
+                    EmptyCollectionRecommendationsResponse(message = result.message)
+                )
+            }
+            is CollectionRecommendationResult.Error -> {
                 val status = when (result.code) {
                     "USER_NOT_FOUND" -> 404
                     "EXTERNAL_SERVICE_ERROR" -> 503

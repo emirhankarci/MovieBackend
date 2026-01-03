@@ -45,3 +45,31 @@ data class RecommendationErrorResponse(
     val error: String,
     val message: String
 )
+
+
+/**
+ * Response for collection-based recommendations
+ */
+data class CollectionRecommendationsResponse(
+    val collectionId: Long,
+    val collectionName: String,
+    val displayMessage: String,
+    val recommendations: List<RecommendedMovie>
+)
+
+/**
+ * Empty response for collection-based recommendations
+ */
+data class EmptyCollectionRecommendationsResponse(
+    val message: String,
+    val recommendations: List<RecommendedMovie> = emptyList()
+)
+
+/**
+ * Result sealed class for collection-based recommendations
+ */
+sealed class CollectionRecommendationResult {
+    data class Success(val response: CollectionRecommendationsResponse) : CollectionRecommendationResult()
+    data class Empty(val message: String) : CollectionRecommendationResult()
+    data class Error(val code: String, val message: String) : CollectionRecommendationResult()
+}

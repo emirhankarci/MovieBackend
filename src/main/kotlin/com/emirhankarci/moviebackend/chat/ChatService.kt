@@ -14,7 +14,9 @@ class ChatService(
     private val chatMessageRepository: ChatMessageRepository,
     private val userRepository: UserRepository,
     private val aiService: AiService,
-    private val tmdbService: TmdbService
+    private val tmdbService: TmdbService,
+    private val userCollectionRepository: com.emirhankarci.moviebackend.usercollection.UserCollectionRepository,
+    private val userCollectionMovieRepository: com.emirhankarci.moviebackend.usercollection.UserCollectionMovieRepository
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(ChatService::class.java)
@@ -57,8 +59,11 @@ class ChatService(
         val context = chatMessageRepository.findTop10ByUserIdOrderByCreatedAtDesc(userId)
             .reversed() // Convert to chronological order
 
+        // Build user context with collections
+        val userContext = buildUserContext(userId)
+
         // Call AI service
-        val aiResponseRaw = when (val result = aiService.generateResponse(context)) {
+        val aiResponseRaw = when (val result = aiService.generateResponse(context, userContext)) {
             is AiResult.Success -> result.data
             is AiResult.Error -> {
                 logger.error("AI service error for user {}: {}", username, result.message)
@@ -215,6 +220,34 @@ class ChatService(
         role = this.role,
         createdAt = this.createdAt
     )
+
+    /**
+     * Build user context string with collections info for AI
+     */
+    private fun buildUserContext(userId: Long): String? {
+        val collections = userCollectionRepository.findByUserId(userId)
+        
+        if (collections.isEmpty()) {
+            return null
+        }
+
+        val collectionInfos = collections.mapNotNull { collection ->
+            val movies = userCollectionMovieRepository.findByCollectionIdOrderByAddedAtAsc(collection.id!!)
+            if (movies.isEmpty()) {
+                null
+            } else {
+                val movieTitles = movies.take(5).joinToString(", ") { it.movieTitle }
+                val suffix = if (movies.size > 5) " ve ${movies.size - 5} film daha" else ""
+                "'${collection.name}' ($movieTitles$suffix)"
+            }
+        }
+
+        return if (collectionInfos.isNotEmpty()) {
+            "Kullanıcının koleksiyonları: ${collectionInfos.joinToString("; ")}"
+        } else {
+            null
+        }
+    }
 }
 
 // AI Response parsing models

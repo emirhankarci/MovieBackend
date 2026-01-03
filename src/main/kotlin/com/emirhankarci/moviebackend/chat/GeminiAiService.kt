@@ -72,11 +72,11 @@ Format: {"preMessage":"...","movieTitle":"İNGİLİZCE FİLM ADI","postMessage":
     private val apiKey: String = System.getenv("GEMINI_API_KEY")
         ?: throw IllegalStateException("GEMINI_API_KEY environment variable must be set!")
 
-    override fun generateResponse(conversationContext: List<ChatMessage>): AiResult<String> {
+    override fun generateResponse(conversationContext: List<ChatMessage>, userContext: String?): AiResult<String> {
         var lastResponse: String? = null
         
         for (attempt in 1..MAX_RETRY_ATTEMPTS) {
-            val result = callGeminiApi(conversationContext, isRetry = attempt > 1)
+            val result = callGeminiApi(conversationContext, userContext, isRetry = attempt > 1)
             
             when (result) {
                 is AiResult.Success -> {
@@ -107,9 +107,9 @@ Format: {"preMessage":"...","movieTitle":"İNGİLİZCE FİLM ADI","postMessage":
         return AiResult.Success(fallbackResponse)
     }
 
-    private fun callGeminiApi(conversationContext: List<ChatMessage>, isRetry: Boolean): AiResult<String> {
+    private fun callGeminiApi(conversationContext: List<ChatMessage>, userContext: String?, isRetry: Boolean): AiResult<String> {
         return try {
-            val requestBody = buildRequestBody(conversationContext, isRetry)
+            val requestBody = buildRequestBody(conversationContext, userContext, isRetry)
             val headers = HttpHeaders().apply {
                 contentType = MediaType.APPLICATION_JSON
             }
@@ -368,13 +368,27 @@ Markdown code block KULLANMA. Sadece JSON.
         }
     }
 
-    private fun buildRequestBody(conversationContext: List<ChatMessage>, isRetry: Boolean): GeminiRequest {
+    private fun buildRequestBody(conversationContext: List<ChatMessage>, userContext: String?, isRetry: Boolean): GeminiRequest {
         val contents = mutableListOf<GeminiContent>()
+        
+        // Build system prompt with user context
+        val systemPromptWithContext = if (userContext != null) {
+            """
+$SYSTEM_PROMPT
+
+📚 KULLANICI BAĞLAMI:
+$userContext
+
+Bu bilgileri kullanarak daha kişiselleştirilmiş öneriler ver. Kullanıcının koleksiyonlarındaki filmlere benzer filmler önerebilirsin.
+            """.trimIndent()
+        } else {
+            SYSTEM_PROMPT.trimIndent()
+        }
         
         // Add system instruction as first user message
         contents.add(GeminiContent(
             role = "user",
-            parts = listOf(GeminiPart(SYSTEM_PROMPT.trimIndent()))
+            parts = listOf(GeminiPart(systemPromptWithContext))
         ))
         contents.add(GeminiContent(
             role = "model",
