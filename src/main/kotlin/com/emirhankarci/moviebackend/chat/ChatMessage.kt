@@ -8,6 +8,7 @@ enum class MessageRole {
     USER, ASSISTANT
 }
 
+//Table
 @Entity
 @Table(name = "chat_messages")
 data class ChatMessage(
