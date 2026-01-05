@@ -15,7 +15,7 @@ data class ErrorResponse(
     val status: Int,
     val message: String
 )
-
+// Not
 @RestControllerAdvice
 class GlobalExceptionHandler {
 
