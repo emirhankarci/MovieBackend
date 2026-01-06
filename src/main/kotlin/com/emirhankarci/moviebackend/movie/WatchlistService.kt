@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.movie
 
+import com.emirhankarci.moviebackend.common.ImageUrlBuilder
 import com.emirhankarci.moviebackend.common.PageResponse
 import com.emirhankarci.moviebackend.user.UserRepository
 import org.slf4j.LoggerFactory
@@ -87,7 +88,7 @@ class WatchlistService(
                     id = it.id!!,
                     movieId = it.movieId,
                     movieTitle = it.movieTitle,
-                    posterPath = it.posterPath,
+                    posterPath = ImageUrlBuilder.buildPosterUrl(it.posterPath),
                     addedAt = it.createdAt,
                     imdbRating = it.imdbRating?.toDouble()
                 )
@@ -102,7 +103,7 @@ class WatchlistService(
                         id = it.id!!,
                         movieId = it.movieId,
                         movieTitle = it.movieTitle,
-                        posterPath = it.posterPath,
+                        posterPath = ImageUrlBuilder.buildPosterUrl(it.posterPath),
                         addedAt = it.createdAt,
                         imdbRating = it.imdbRating?.toDouble()
                     )

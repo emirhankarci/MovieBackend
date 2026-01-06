@@ -2,6 +2,7 @@ package com.emirhankarci.moviebackend.search
 
 import com.emirhankarci.moviebackend.cache.CacheKeys
 import com.emirhankarci.moviebackend.cache.CacheService
+import com.emirhankarci.moviebackend.common.ImageUrlBuilder
 import com.emirhankarci.moviebackend.search.dto.*
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -187,7 +188,7 @@ class MovieSearchService(
         return MovieDto(
             id = this.id,
             title = this.title,
-            posterPath = this.poster_path,
+            posterPath = ImageUrlBuilder.buildPosterUrl(this.poster_path),
             rating = this.vote_average,
             voteCount = this.vote_count,
             releaseDate = this.release_date,

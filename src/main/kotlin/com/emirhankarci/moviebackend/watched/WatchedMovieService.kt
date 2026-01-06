@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.watched
 
+import com.emirhankarci.moviebackend.common.ImageUrlBuilder
 import com.emirhankarci.moviebackend.common.PageResponse
 import com.emirhankarci.moviebackend.user.UserRepository
 import org.slf4j.LoggerFactory
@@ -79,7 +80,7 @@ class WatchedMovieService(
                 id = it.id!!,
                 movieId = it.movieId,
                 movieTitle = it.movieTitle,
-                posterPath = it.posterPath,
+                posterPath = ImageUrlBuilder.buildPosterUrl(it.posterPath),
                 watchedAt = it.watchedAt,
                 userRating = it.userRating?.toDouble(),
                 imdbRating = it.imdbRating?.toDouble()

@@ -2,6 +2,7 @@ package com.emirhankarci.moviebackend.chat
 
 import com.emirhankarci.moviebackend.cache.CacheKeys
 import com.emirhankarci.moviebackend.cache.CacheService
+import com.emirhankarci.moviebackend.common.ImageUrlBuilder
 import com.emirhankarci.moviebackend.tmdb.TmdbApiClient
 import com.emirhankarci.moviebackend.tmdb.dto.MovieDetailResponse
 import org.slf4j.LoggerFactory
@@ -70,7 +71,7 @@ class TmdbService(
                 MovieData(
                     id = movie.id,
                     title = movie.title,
-                    posterPath = movie.poster_path,
+                    posterPath = ImageUrlBuilder.buildPosterUrl(movie.poster_path),
                     rating = movie.vote_average,
                     voteCount = movie.vote_count
                 )
