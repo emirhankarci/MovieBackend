@@ -3,6 +3,7 @@ package com.emirhankarci.moviebackend.featured
 import com.emirhankarci.moviebackend.cache.CacheKeys
 import com.emirhankarci.moviebackend.cache.CacheService
 import com.emirhankarci.moviebackend.search.TmdbGenreMapper
+import kotlinx.coroutines.*
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.web.client.HttpClientErrorException
@@ -49,7 +50,7 @@ class FeaturedMoviesService(
             val trendingMovies = fetchTrendingMovies(timeWindow)
             val filteredMovies = filterByBackdrop(trendingMovies)
             val qualityMovies = applyQualityFilter(filteredMovies)
-            val featuredMovies = transformToFeaturedMovies(qualityMovies)
+            val featuredMovies = transformToFeaturedMoviesParallel(qualityMovies)
             
             // Cache the results in Redis
             val ttl = if (timeWindow == TimeWindow.DAY) CacheKeys.TTL.SHORT else CacheKeys.TTL.MEDIUM
@@ -112,26 +113,37 @@ class FeaturedMoviesService(
     }
 
     /**
-     * Transform TMDB movies to FeaturedMovie DTOs
+     * Transform TMDB movies to FeaturedMovie DTOs with parallel tagline fetching
      */
-    private fun transformToFeaturedMovies(movies: List<TmdbTrendingMovie>): List<FeaturedMovie> {
-        return movies.mapNotNull { movie ->
-            try {
-                val tagline = fetchTagline(movie.id)
-                FeaturedMovie(
-                    id = movie.id,
-                    title = movie.title,
-                    backdropPath = buildFullBackdropUrl(movie.backdrop_path!!),
-                    tagline = tagline ?: "",
-                    rating = movie.vote_average,
-                    releaseYear = extractYear(movie.release_date),
-                    genres = movie.genre_ids?.map { TmdbGenreMapper.getGenreName(it) } ?: emptyList()
-                )
-            } catch (e: Exception) {
-                logger.warn("Failed to transform movie {}: {}", movie.id, e.message)
-                null
-            }
+    private fun transformToFeaturedMoviesParallel(movies: List<TmdbTrendingMovie>): List<FeaturedMovie> {
+        val startTime = System.currentTimeMillis()
+        
+        val featuredMovies = runBlocking(Dispatchers.IO) {
+            movies.map { movie ->
+                async {
+                    try {
+                        val tagline = fetchTagline(movie.id)
+                        FeaturedMovie(
+                            id = movie.id,
+                            title = movie.title,
+                            backdropPath = buildFullBackdropUrl(movie.backdrop_path!!),
+                            tagline = tagline ?: "",
+                            rating = movie.vote_average,
+                            releaseYear = extractYear(movie.release_date),
+                            genres = movie.genre_ids?.map { TmdbGenreMapper.getGenreName(it) } ?: emptyList()
+                        )
+                    } catch (e: Exception) {
+                        logger.warn("Failed to transform movie {}: {}", movie.id, e.message)
+                        null
+                    }
+                }
+            }.awaitAll().filterNotNull()
         }
+        
+        val duration = System.currentTimeMillis() - startTime
+        logger.info("Parallel tagline fetch for {} movies completed in {}ms", movies.size, duration)
+        
+        return featuredMovies
     }
 
     /**

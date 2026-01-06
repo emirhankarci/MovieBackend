@@ -53,6 +53,10 @@ dependencies {
 
     // Redis Cache
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
+    
+    // Kotlin Coroutines (Paralel API çağrıları için)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.8.1")
 }
 
 kotlin {
