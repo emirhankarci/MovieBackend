@@ -4,6 +4,7 @@ import com.emirhankarci.moviebackend.user.User
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
+import java.time.Instant
 
 interface RefreshTokenRepository : JpaRepository<RefreshToken, Long> {
     fun findByToken(token: String): RefreshToken?
@@ -15,5 +16,20 @@ interface RefreshTokenRepository : JpaRepository<RefreshToken, Long> {
 
     @Modifying
     @Query("DELETE FROM RefreshToken r WHERE r.expiresAt < :now OR r.revoked = true")
-    fun deleteExpiredAndRevokedTokens(now: java.time.Instant): Int
+    fun deleteExpiredAndRevokedTokens(now: Instant): Int
+    
+    /**
+     * Delete expired tokens (expiresAt < now)
+     */
+    @Modifying
+    @Query("DELETE FROM RefreshToken r WHERE r.expiresAt < :now")
+    fun deleteExpiredTokens(now: Instant): Int
+    
+    /**
+     * Delete revoked tokens older than specified time
+     * This allows keeping recently revoked tokens for audit purposes
+     */
+    @Modifying
+    @Query("DELETE FROM RefreshToken r WHERE r.revoked = true AND r.expiresAt < :cutoffTime")
+    fun deleteRevokedTokensOlderThan(cutoffTime: Instant): Int
 }
