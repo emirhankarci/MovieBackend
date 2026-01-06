@@ -174,6 +174,50 @@ class TmdbApiClient(
             ?: throw TmdbApiException("Credits not found for TV series: $seriesId", HttpStatus.NOT_FOUND.value())
     }
 
+    /**
+     * Popüler TV dizilerini getirir
+     */
+    fun getPopularTvSeries(page: Int = 1, language: String = "tr-TR"): TmdbTvListResponse {
+        val url = "$BASE_URL/tv/popular?api_key=$apiKey&language=$language&page=$page"
+        logger.debug("Fetching popular TV series: page={}, language={}", page, language)
+        
+        return executeRequest(url, TmdbTvListResponse::class.java)
+            ?: throw TmdbApiException("Failed to fetch popular TV series", HttpStatus.SERVICE_UNAVAILABLE.value())
+    }
+
+    /**
+     * En yüksek puanlı TV dizilerini getirir
+     */
+    fun getTopRatedTvSeries(page: Int = 1, language: String = "tr-TR"): TmdbTvListResponse {
+        val url = "$BASE_URL/tv/top_rated?api_key=$apiKey&language=$language&page=$page"
+        logger.debug("Fetching top rated TV series: page={}, language={}", page, language)
+        
+        return executeRequest(url, TmdbTvListResponse::class.java)
+            ?: throw TmdbApiException("Failed to fetch top rated TV series", HttpStatus.SERVICE_UNAVAILABLE.value())
+    }
+
+    /**
+     * Şu an yayında olan TV dizilerini getirir
+     */
+    fun getOnTheAirTvSeries(page: Int = 1, language: String = "tr-TR"): TmdbTvListResponse {
+        val url = "$BASE_URL/tv/on_the_air?api_key=$apiKey&language=$language&page=$page"
+        logger.debug("Fetching on the air TV series: page={}, language={}", page, language)
+        
+        return executeRequest(url, TmdbTvListResponse::class.java)
+            ?: throw TmdbApiException("Failed to fetch on the air TV series", HttpStatus.SERVICE_UNAVAILABLE.value())
+    }
+
+    /**
+     * Bugün yayınlanan TV dizilerini getirir
+     */
+    fun getAiringTodayTvSeries(page: Int = 1, language: String = "tr-TR"): TmdbTvListResponse {
+        val url = "$BASE_URL/tv/airing_today?api_key=$apiKey&language=$language&page=$page"
+        logger.debug("Fetching airing today TV series: page={}, language={}", page, language)
+        
+        return executeRequest(url, TmdbTvListResponse::class.java)
+            ?: throw TmdbApiException("Failed to fetch airing today TV series", HttpStatus.SERVICE_UNAVAILABLE.value())
+    }
+
     private fun <T : Any> executeRequest(url: String, responseType: Class<T>): T? {
         return circuitBreakerService.executeWithTmdbCircuitBreaker(
             fallback = {

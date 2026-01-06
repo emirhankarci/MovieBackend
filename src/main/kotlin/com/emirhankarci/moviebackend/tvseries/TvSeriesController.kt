@@ -161,6 +161,116 @@ class TvSeriesController(
         }
     }
 
+    // ==================== Featured TV Series Endpoints ====================
+
+    /**
+     * GET /api/tv/popular
+     * Popüler TV dizilerini getirir
+     */
+    @GetMapping("/popular")
+    fun getPopularTvSeries(
+        @RequestParam(defaultValue = "1") page: Int
+    ): ResponseEntity<Any> {
+        logger.info("GET /api/tv/popular - page: {}", page)
+        
+        if (page < 1) {
+            return ResponseEntity.badRequest().body(
+                TvSeriesErrorResponse(
+                    error = "INVALID_PARAMETER",
+                    message = "Geçersiz sayfa numarası"
+                )
+            )
+        }
+        
+        return try {
+            val response = tvSeriesService.getPopularTvSeries(page)
+            ResponseEntity.ok(response)
+        } catch (e: TmdbApiException) {
+            handleTmdbException(e, "Popüler diziler")
+        }
+    }
+
+    /**
+     * GET /api/tv/top-rated
+     * En yüksek puanlı TV dizilerini getirir
+     */
+    @GetMapping("/top-rated")
+    fun getTopRatedTvSeries(
+        @RequestParam(defaultValue = "1") page: Int
+    ): ResponseEntity<Any> {
+        logger.info("GET /api/tv/top-rated - page: {}", page)
+        
+        if (page < 1) {
+            return ResponseEntity.badRequest().body(
+                TvSeriesErrorResponse(
+                    error = "INVALID_PARAMETER",
+                    message = "Geçersiz sayfa numarası"
+                )
+            )
+        }
+        
+        return try {
+            val response = tvSeriesService.getTopRatedTvSeries(page)
+            ResponseEntity.ok(response)
+        } catch (e: TmdbApiException) {
+            handleTmdbException(e, "En iyi diziler")
+        }
+    }
+
+    /**
+     * GET /api/tv/on-the-air
+     * Şu an yayında olan TV dizilerini getirir
+     */
+    @GetMapping("/on-the-air")
+    fun getOnTheAirTvSeries(
+        @RequestParam(defaultValue = "1") page: Int
+    ): ResponseEntity<Any> {
+        logger.info("GET /api/tv/on-the-air - page: {}", page)
+        
+        if (page < 1) {
+            return ResponseEntity.badRequest().body(
+                TvSeriesErrorResponse(
+                    error = "INVALID_PARAMETER",
+                    message = "Geçersiz sayfa numarası"
+                )
+            )
+        }
+        
+        return try {
+            val response = tvSeriesService.getOnTheAirTvSeries(page)
+            ResponseEntity.ok(response)
+        } catch (e: TmdbApiException) {
+            handleTmdbException(e, "Yayındaki diziler")
+        }
+    }
+
+    /**
+     * GET /api/tv/airing-today
+     * Bugün yayınlanan TV dizilerini getirir
+     */
+    @GetMapping("/airing-today")
+    fun getAiringTodayTvSeries(
+        @RequestParam(defaultValue = "1") page: Int
+    ): ResponseEntity<Any> {
+        logger.info("GET /api/tv/airing-today - page: {}", page)
+        
+        if (page < 1) {
+            return ResponseEntity.badRequest().body(
+                TvSeriesErrorResponse(
+                    error = "INVALID_PARAMETER",
+                    message = "Geçersiz sayfa numarası"
+                )
+            )
+        }
+        
+        return try {
+            val response = tvSeriesService.getAiringTodayTvSeries(page)
+            ResponseEntity.ok(response)
+        } catch (e: TmdbApiException) {
+            handleTmdbException(e, "Bugünkü diziler")
+        }
+    }
+
     /**
      * TMDB exception'larını uygun HTTP response'a çevirir
      */

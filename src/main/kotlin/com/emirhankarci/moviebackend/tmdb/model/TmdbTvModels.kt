@@ -117,3 +117,26 @@ data class TmdbTvCrewMember(
     val department: String?,
     val profile_path: String?
 )
+
+
+// ==================== TV Series List (Popular, Top Rated, On The Air, Airing Today) ====================
+
+data class TmdbTvListResponse(
+    val page: Int,
+    val results: List<TmdbTvListItem>,
+    val total_pages: Int,
+    val total_results: Int
+)
+
+data class TmdbTvListItem(
+    val id: Long,
+    val name: String,
+    val overview: String?,
+    val poster_path: String?,
+    val backdrop_path: String?,
+    val vote_average: Double,
+    val vote_count: Int,
+    val first_air_date: String?,
+    val popularity: Double?,
+    val genre_ids: List<Int>?
+)

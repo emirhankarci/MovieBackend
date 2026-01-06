@@ -123,3 +123,24 @@ data class TvSeriesErrorResponse(
     val error: String,
     val message: String
 )
+
+
+// ==================== TV Series List (Popular, Top Rated, On The Air, Airing Today) ====================
+
+data class TvSeriesListResponse(
+    val series: List<TvSeriesListItemDto>,
+    val page: Int,
+    val totalPages: Int,
+    val totalResults: Int
+)
+
+data class TvSeriesListItemDto(
+    val id: Long,
+    val name: String,
+    val overview: String,
+    val posterPath: String?,
+    val backdropPath: String?,
+    val voteAverage: Double,
+    val voteCount: Int,
+    val firstAirDate: String?
+)

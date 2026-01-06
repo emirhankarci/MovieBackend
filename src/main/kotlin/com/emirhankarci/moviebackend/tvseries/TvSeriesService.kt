@@ -118,6 +118,85 @@ class TvSeriesService(
         return response.copy(cast = response.cast.take(limit))
     }
 
+    // ==================== Featured TV Series Methods ====================
+
+    /**
+     * Popüler TV dizilerini getirir (cache destekli)
+     */
+    fun getPopularTvSeries(page: Int = 1): TvSeriesListResponse {
+        val cacheKey = CacheKeys.TvSeries.popular(page)
+        
+        cacheService.get(cacheKey, TvSeriesListResponse::class.java)?.let {
+            logger.info("Popular TV series cache HIT for page: {}", page)
+            return it
+        }
+        
+        logger.info("Popular TV series cache MISS for page: {}, fetching from TMDB", page)
+        val tmdbResponse = tmdbApiClient.getPopularTvSeries(page)
+        val response = mapToTvSeriesListResponse(tmdbResponse)
+        
+        cacheService.set(cacheKey, response, CacheKeys.TTL.SHORT)
+        return response
+    }
+
+    /**
+     * En yüksek puanlı TV dizilerini getirir (cache destekli)
+     */
+    fun getTopRatedTvSeries(page: Int = 1): TvSeriesListResponse {
+        val cacheKey = CacheKeys.TvSeries.topRated(page)
+        
+        cacheService.get(cacheKey, TvSeriesListResponse::class.java)?.let {
+            logger.info("Top rated TV series cache HIT for page: {}", page)
+            return it
+        }
+        
+        logger.info("Top rated TV series cache MISS for page: {}, fetching from TMDB", page)
+        val tmdbResponse = tmdbApiClient.getTopRatedTvSeries(page)
+        val response = mapToTvSeriesListResponse(tmdbResponse)
+        
+        cacheService.set(cacheKey, response, CacheKeys.TTL.SHORT)
+        return response
+    }
+
+    /**
+     * Şu an yayında olan TV dizilerini getirir (cache destekli)
+     */
+    fun getOnTheAirTvSeries(page: Int = 1): TvSeriesListResponse {
+        val cacheKey = CacheKeys.TvSeries.onTheAir(page)
+        
+        cacheService.get(cacheKey, TvSeriesListResponse::class.java)?.let {
+            logger.info("On the air TV series cache HIT for page: {}", page)
+            return it
+        }
+        
+        logger.info("On the air TV series cache MISS for page: {}, fetching from TMDB", page)
+        val tmdbResponse = tmdbApiClient.getOnTheAirTvSeries(page)
+        val response = mapToTvSeriesListResponse(tmdbResponse)
+        
+        cacheService.set(cacheKey, response, CacheKeys.TTL.SHORT)
+        return response
+    }
+
+    /**
+     * Bugün yayınlanan TV dizilerini getirir (cache destekli)
+     */
+    fun getAiringTodayTvSeries(page: Int = 1): TvSeriesListResponse {
+        val cacheKey = CacheKeys.TvSeries.airingToday(page)
+        
+        cacheService.get(cacheKey, TvSeriesListResponse::class.java)?.let {
+            logger.info("Airing today TV series cache HIT for page: {}", page)
+            return it
+        }
+        
+        logger.info("Airing today TV series cache MISS for page: {}, fetching from TMDB", page)
+        val tmdbResponse = tmdbApiClient.getAiringTodayTvSeries(page)
+        val response = mapToTvSeriesListResponse(tmdbResponse)
+        
+        // Airing today daha dinamik, 30 dakika cache
+        cacheService.set(cacheKey, response, CacheKeys.TTL.VERY_SHORT)
+        return response
+    }
+
     // ==================== Mapping Functions ====================
 
     private fun mapToTvSeriesDetailResponse(tmdb: TmdbTvSeriesDetailResponse): TvSeriesDetailResponse {
@@ -231,6 +310,30 @@ class TvSeriesService(
                         profilePath = tmdbApiClient.buildProfileUrl(crew.profile_path)
                     )
                 } ?: emptyList()
+        )
+    }
+
+    private fun mapToTvSeriesListResponse(tmdb: TmdbTvListResponse): TvSeriesListResponse {
+        val filteredSeries = tmdb.results
+            .filter { it.poster_path != null } // Poster olmayan dizileri filtrele
+            .map { item ->
+                TvSeriesListItemDto(
+                    id = item.id,
+                    name = item.name,
+                    overview = item.overview ?: "",
+                    posterPath = tmdbApiClient.buildPosterUrl(item.poster_path),
+                    backdropPath = tmdbApiClient.buildBackdropUrl(item.backdrop_path),
+                    voteAverage = item.vote_average,
+                    voteCount = item.vote_count,
+                    firstAirDate = item.first_air_date
+                )
+            }
+        
+        return TvSeriesListResponse(
+            series = filteredSeries,
+            page = tmdb.page,
+            totalPages = tmdb.total_pages,
+            totalResults = tmdb.total_results
         )
     }
 }

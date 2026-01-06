@@ -138,6 +138,18 @@ object CacheKeys {
         /** tv:{seriesId}:credits - Cast and crew */
         fun credits(seriesId: Long): String = "$PREFIX:$seriesId:credits"
         
+        /** tv:popular:page:{page} - Popular TV series list */
+        fun popular(page: Int = 1): String = "$PREFIX:popular:page:$page"
+        
+        /** tv:top_rated:page:{page} - Top rated TV series list */
+        fun topRated(page: Int = 1): String = "$PREFIX:top_rated:page:$page"
+        
+        /** tv:on_the_air:page:{page} - On the air TV series list */
+        fun onTheAir(page: Int = 1): String = "$PREFIX:on_the_air:page:$page"
+        
+        /** tv:airing_today:page:{page} - Airing today TV series list */
+        fun airingToday(page: Int = 1): String = "$PREFIX:airing_today:page:$page"
+        
         /** Pattern for all TV series keys */
         const val PATTERN_ALL = "$PREFIX:*"
     }
