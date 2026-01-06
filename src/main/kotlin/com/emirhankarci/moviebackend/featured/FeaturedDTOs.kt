@@ -4,20 +4,20 @@ package com.emirhankarci.moviebackend.featured
  * Featured movie data for carousel display
  */
 data class FeaturedMovie(
-    val id: Long,
-    val title: String,
-    val backdropPath: String,
-    val tagline: String,
-    val rating: Double,
-    val releaseYear: Int,
-    val genres: List<String>
+    val id: Long = 0,
+    val title: String = "",
+    val backdropPath: String = "",
+    val tagline: String = "",
+    val rating: Double = 0.0,
+    val releaseYear: Int = 0,
+    val genres: List<String> = emptyList()
 )
 
 /**
  * Response wrapper for featured movies endpoint
  */
 data class FeaturedMoviesResponse(
-    val movies: List<FeaturedMovie>
+    val movies: List<FeaturedMovie> = emptyList()
 )
 
 /**

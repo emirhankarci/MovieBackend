@@ -52,5 +52,5 @@ data class TmdbMovieDetails(
  * Wrapper for caching featured movies list
  */
 data class FeaturedMoviesCacheData(
-    val movies: List<FeaturedMovie>
+    val movies: List<FeaturedMovie> = emptyList()
 )

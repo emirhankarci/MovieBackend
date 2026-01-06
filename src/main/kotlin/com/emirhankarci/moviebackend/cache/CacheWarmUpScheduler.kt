@@ -39,8 +39,12 @@ class CacheWarmUpScheduler(
 
     /**
      * Periodically refresh cache (every 4 hours by default)
+     * initialDelay set to interval to avoid duplicate execution with ApplicationReadyEvent
      */
-    @Scheduled(fixedRateString = "\${scheduler.cache-warmup.interval:14400000}")
+    @Scheduled(
+        fixedRateString = "\${scheduler.cache-warmup.interval:14400000}",
+        initialDelayString = "\${scheduler.cache-warmup.interval:14400000}"
+    )
     fun scheduledWarmUp() {
         logger.info("Scheduled cache warm-up triggered")
         warmUpCache()
