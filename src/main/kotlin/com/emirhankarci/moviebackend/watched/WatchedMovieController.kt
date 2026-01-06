@@ -34,12 +34,14 @@ class WatchedMovieController(
 
     @GetMapping
     fun getWatchedMovies(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(defaultValue = "desc") sortOrder: String
     ): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
 
-        return when (val result = watchedMovieService.getUserWatchedMovies(username, sortOrder)) {
+        return when (val result = watchedMovieService.getUserWatchedMovies(username, page, size, sortOrder)) {
             is WatchedMovieResult.Success -> ResponseEntity.ok(result.data)
             is WatchedMovieResult.Error -> ResponseEntity.badRequest().body(mapOf("message" to result.message))
         }

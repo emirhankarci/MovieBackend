@@ -38,14 +38,6 @@ data class WatchlistStatusResponse(
     val inWatchlist: Boolean
 )
 
-data class PaginatedWatchlistResponse(
-    val content: List<WatchlistResponse>,
-    val page: Int,
-    val size: Int,
-    val totalElements: Long,
-    val totalPages: Int
-)
-
 sealed class WatchlistResult<out T> {
     data class Success<T>(val data: T) : WatchlistResult<T>()
     data class Error(val message: String) : WatchlistResult<Nothing>()

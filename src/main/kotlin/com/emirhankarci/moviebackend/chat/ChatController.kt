@@ -45,12 +45,15 @@ class ChatController(
     }
 
     @GetMapping("/history")
-    fun getHistory(): ResponseEntity<Any> {
+    fun getHistory(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int
+    ): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ChatErrorResponse("Authentication required", "UNAUTHORIZED"))
 
-        return when (val result = chatService.getConversationHistory(username)) {
+        return when (val result = chatService.getConversationHistory(username, page, size)) {
             is ChatResult.Success -> ResponseEntity.ok(result.data)
             is ChatResult.Error -> {
                 ResponseEntity.status(HttpStatus.NOT_FOUND)

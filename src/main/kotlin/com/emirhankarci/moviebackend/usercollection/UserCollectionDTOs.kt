@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.usercollection
 
+import com.emirhankarci.moviebackend.common.PageResponse
 import com.fasterxml.jackson.annotation.JsonFormat
 import java.time.LocalDateTime
 
@@ -79,7 +80,7 @@ data class CollectionDetailResponse(
     val movieCount: Int,
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     val createdAt: LocalDateTime,
-    val movies: List<CollectionMovieResponse>
+    val movies: PageResponse<CollectionMovieResponse>
 )
 
 data class CollectionMovieResponse(

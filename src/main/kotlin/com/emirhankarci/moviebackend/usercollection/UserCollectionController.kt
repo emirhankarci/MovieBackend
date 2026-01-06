@@ -38,11 +38,14 @@ class UserCollectionController(
     }
 
     @GetMapping
-    fun getUserCollections(): ResponseEntity<Any> {
+    fun getUserCollections(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int
+    ): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
 
-        return when (val result = userCollectionService.getUserCollections(username)) {
+        return when (val result = userCollectionService.getUserCollections(username, page, size)) {
             is UserCollectionResult.Success -> ResponseEntity.ok(result.data)
             is UserCollectionResult.Error -> {
                 ResponseEntity.status(404).body(
@@ -55,12 +58,14 @@ class UserCollectionController(
     @GetMapping("/{id}")
     fun getCollectionDetail(
         @PathVariable id: Long,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(defaultValue = "desc") sortOrder: String
     ): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
 
-        return when (val result = userCollectionService.getCollectionDetail(username, id, sortOrder)) {
+        return when (val result = userCollectionService.getCollectionDetail(username, id, page, size, sortOrder)) {
             is UserCollectionResult.Success -> ResponseEntity.ok(result.data)
             is UserCollectionResult.Error -> {
                 val status = when (result.code) {

@@ -1,7 +1,9 @@
 package com.emirhankarci.moviebackend.chat
 
+import com.emirhankarci.moviebackend.common.PageResponse
 import com.emirhankarci.moviebackend.user.UserRepository
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import tools.jackson.module.kotlin.jacksonObjectMapper
@@ -180,17 +182,23 @@ class ChatService(
         return null
     }
 
-    fun getConversationHistory(username: String): ChatResult<List<ChatMessageResponse>> {
+    fun getConversationHistory(
+        username: String,
+        page: Int = 0,
+        size: Int = 20
+    ): ChatResult<PageResponse<ChatMessageResponse>> {
         val user = userRepository.findByUsername(username)
             ?: return ChatResult.Error("User not found", ChatErrorCode.USER_NOT_FOUND)
 
         val userId = user.id ?: return ChatResult.Error("User ID not found", ChatErrorCode.USER_NOT_FOUND)
 
-        val messages = chatMessageRepository.findByUserIdOrderByCreatedAtAsc(userId)
-            .map { it.toResponse() }
+        val pageable = PageRequest.of(page, size)
+        val messagesPage = chatMessageRepository.findByUserIdOrderByCreatedAtAsc(userId, pageable)
+        
+        val response = PageResponse.from(messagesPage) { it.toResponse() }
 
-        logger.debug("Returning {} messages for user {}", messages.size, username)
-        return ChatResult.Success(messages)
+        logger.debug("Returning {} messages for user {} (page {})", response.content.size, username, page)
+        return ChatResult.Success(response)
     }
 
     fun getRemainingQuota(username: String): ChatResult<QuotaResponse> {

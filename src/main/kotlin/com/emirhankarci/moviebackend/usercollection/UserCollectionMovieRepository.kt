@@ -1,5 +1,7 @@
 package com.emirhankarci.moviebackend.usercollection
 
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
@@ -17,4 +19,8 @@ interface UserCollectionMovieRepository : JpaRepository<UserCollectionMovie, Lon
     
     @Query("SELECT m FROM UserCollectionMovie m WHERE m.movieId = :movieId AND m.collection.user.id = :userId")
     fun findByMovieIdAndCollectionUserId(movieId: Long, userId: Long): List<UserCollectionMovie>
+    
+    // Paginated queries
+    fun findByCollectionIdOrderByAddedAtAsc(collectionId: Long, pageable: Pageable): Page<UserCollectionMovie>
+    fun findByCollectionIdOrderByAddedAtDesc(collectionId: Long, pageable: Pageable): Page<UserCollectionMovie>
 }

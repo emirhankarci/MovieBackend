@@ -1,7 +1,9 @@
 package com.emirhankarci.moviebackend.watched
 
+import com.emirhankarci.moviebackend.common.PageResponse
 import com.emirhankarci.moviebackend.user.UserRepository
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -66,18 +68,21 @@ class WatchedMovieService(
 
     fun getUserWatchedMovies(
         username: String,
+        page: Int = 0,
+        size: Int = 20,
         sortOrder: String = "desc"
-    ): WatchedMovieResult<List<WatchedMovieResponse>> {
+    ): WatchedMovieResult<PageResponse<WatchedMovieResponse>> {
         val user = userRepository.findByUsername(username)
             ?: return WatchedMovieResult.Error("User not found!")
 
-        val watchedMovies = if (sortOrder.lowercase() == "asc") {
-            watchedMovieRepository.findByUserIdOrderByWatchedAtAsc(user.id!!)
+        val pageable = PageRequest.of(page, size)
+        val watchedMoviesPage = if (sortOrder.lowercase() == "asc") {
+            watchedMovieRepository.findByUserIdOrderByWatchedAtAsc(user.id!!, pageable)
         } else {
-            watchedMovieRepository.findByUserIdOrderByWatchedAtDesc(user.id!!)
+            watchedMovieRepository.findByUserIdOrderByWatchedAtDesc(user.id!!, pageable)
         }
 
-        val response = watchedMovies.map {
+        val response = PageResponse.from(watchedMoviesPage) {
             WatchedMovieResponse(
                 id = it.id!!,
                 movieId = it.movieId,
@@ -89,7 +94,7 @@ class WatchedMovieService(
             )
         }
 
-        logger.debug("Returning {} watched movies for user {}", response.size, username)
+        logger.debug("Returning {} watched movies for user {} (page {})", response.content.size, username, page)
         return WatchedMovieResult.Success(response)
     }
 

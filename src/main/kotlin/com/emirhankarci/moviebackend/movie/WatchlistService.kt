@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.movie
 
+import com.emirhankarci.moviebackend.common.PageResponse
 import com.emirhankarci.moviebackend.user.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
@@ -90,7 +91,7 @@ class WatchlistService(
             val pageable = PageRequest.of(page, size)
             val pageResult = watchlistRepository.findByUserIdOrderByCreatedAtDesc(user.id!!, pageable)
             
-            val content = pageResult.content.map {
+            val response = PageResponse.from(pageResult) {
                 WatchlistResponse(
                     id = it.id!!,
                     movieId = it.movieId,
@@ -102,13 +103,7 @@ class WatchlistService(
             }
             
             logger.debug("Returning paginated watchlist for user {}: page {}, size {}", username, page, size)
-            WatchlistResult.Success(PaginatedWatchlistResponse(
-                content = content,
-                page = page,
-                size = size,
-                totalElements = pageResult.totalElements,
-                totalPages = pageResult.totalPages
-            ))
+            WatchlistResult.Success(response)
         } else {
             val watchlist = watchlistRepository.findByUserIdOrderByCreatedAtDesc(user.id!!)
                 .map {

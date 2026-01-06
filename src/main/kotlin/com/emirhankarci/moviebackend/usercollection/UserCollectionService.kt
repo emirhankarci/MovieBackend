@@ -1,7 +1,9 @@
 package com.emirhankarci.moviebackend.usercollection
 
+import com.emirhankarci.moviebackend.common.PageResponse
 import com.emirhankarci.moviebackend.user.UserRepository
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -74,13 +76,18 @@ class UserCollectionService(
     }
 
 
-    fun getUserCollections(username: String): UserCollectionResult<List<CollectionSummaryResponse>> {
+    fun getUserCollections(
+        username: String,
+        page: Int = 0,
+        size: Int = 20
+    ): UserCollectionResult<PageResponse<CollectionSummaryResponse>> {
         val user = userRepository.findByUsername(username)
             ?: return UserCollectionResult.Error("USER_NOT_FOUND", "User not found")
 
-        val collections = userCollectionRepository.findByUserId(user.id!!)
+        val pageable = PageRequest.of(page, size)
+        val collectionsPage = userCollectionRepository.findByUserIdOrderByCreatedAtDesc(user.id!!, pageable)
 
-        val response = collections.map { collection ->
+        val response = PageResponse.from(collectionsPage) { collection ->
             val collectionId = collection.id!!
             val movieCount = userCollectionMovieRepository.countByCollectionId(collectionId)
             val coverPosters = getCoverPosters(collectionId)
@@ -95,13 +102,15 @@ class UserCollectionService(
             )
         }
 
-        logger.debug("Returning {} collections for user {}", response.size, username)
+        logger.debug("Returning {} collections for user {} (page {})", response.content.size, username, page)
         return UserCollectionResult.Success(response)
     }
 
     fun getCollectionDetail(
         username: String,
         collectionId: Long,
+        page: Int = 0,
+        size: Int = 20,
         sortOrder: String = "desc"
     ): UserCollectionResult<CollectionDetailResponse> {
         val user = userRepository.findByUsername(username)
@@ -110,15 +119,17 @@ class UserCollectionService(
         val collection = userCollectionRepository.findByIdAndUserId(collectionId, user.id!!)
             .orElse(null) ?: return UserCollectionResult.Error("COLLECTION_NOT_FOUND", "Collection not found")
 
-        val movies = if (sortOrder.lowercase() == "asc") {
-            userCollectionMovieRepository.findByCollectionIdOrderByAddedAtAsc(collectionId)
+        val pageable = PageRequest.of(page, size)
+        val moviesPage = if (sortOrder.lowercase() == "asc") {
+            userCollectionMovieRepository.findByCollectionIdOrderByAddedAtAsc(collectionId, pageable)
         } else {
-            userCollectionMovieRepository.findByCollectionIdOrderByAddedAtDesc(collectionId)
+            userCollectionMovieRepository.findByCollectionIdOrderByAddedAtDesc(collectionId, pageable)
         }
 
         val coverPosters = getCoverPosters(collectionId)
+        val totalMovieCount = userCollectionMovieRepository.countByCollectionId(collectionId)
 
-        val movieResponses = movies.map { movie ->
+        val moviesResponse = PageResponse.from(moviesPage) { movie ->
             CollectionMovieResponse(
                 id = movie.id!!,
                 movieId = movie.movieId,
@@ -134,9 +145,9 @@ class UserCollectionService(
                 name = collection.name,
                 description = collection.description,
                 coverPosters = coverPosters,
-                movieCount = movies.size,
+                movieCount = totalMovieCount,
                 createdAt = collection.createdAt,
-                movies = movieResponses
+                movies = moviesResponse
             )
         )
     }
