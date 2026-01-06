@@ -61,6 +61,9 @@ dependencies {
     // Resilience4j (Circuit Breaker)
     implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
     implementation("io.github.resilience4j:resilience4j-kotlin:2.2.0")
+    
+    // Bean Validation
+    implementation("org.springframework.boot:spring-boot-starter-validation")
 }
 
 kotlin {

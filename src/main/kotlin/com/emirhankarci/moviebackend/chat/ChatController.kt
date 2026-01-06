@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.chat
 
+import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
@@ -14,19 +15,10 @@ class ChatController(
 ) {
 
     @PostMapping("/send")
-    fun sendMessage(@RequestBody request: SendMessageRequest): ResponseEntity<Any> {
+    fun sendMessage(@Valid @RequestBody request: SendMessageRequest): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ChatErrorResponse("Authentication required", "UNAUTHORIZED"))
-
-        // Validate request
-        when (val validation = request.validate()) {
-            is ChatValidationResult.Invalid -> {
-                return ResponseEntity.badRequest()
-                    .body(ChatErrorResponse(validation.message, "VALIDATION_ERROR"))
-            }
-            is ChatValidationResult.Valid -> { /* continue */ }
-        }
 
         return when (val result = chatService.sendMessage(username, request.message)) {
             is ChatResult.Success -> ResponseEntity.ok(result.data)
@@ -99,7 +91,7 @@ class ChatController(
     @PostMapping("/messages/{messageId}/reaction")
     fun addReaction(
         @PathVariable messageId: Long,
-        @RequestBody request: ReactionRequest
+        @Valid @RequestBody request: ReactionRequest
     ): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

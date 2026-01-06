@@ -19,15 +19,6 @@ class WatchlistService(
 
     @Transactional
     fun toggleWatchlist(username: String, request: WatchlistRequest): WatchlistResult<String> {
-        // Validation
-        when (val validation = request.validate()) {
-            is ValidationResult.Invalid -> {
-                logger.warn("Validation failed for user {}: {}", username, validation.message)
-                return WatchlistResult.Error(validation.message)
-            }
-            is ValidationResult.Valid -> { /* continue */ }
-        }
-
         val user = userRepository.findByUsername(username)
             ?: return WatchlistResult.Error("User not found!")
 

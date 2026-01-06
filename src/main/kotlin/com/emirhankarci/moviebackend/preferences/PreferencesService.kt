@@ -36,8 +36,8 @@ class PreferencesService(
 
     @Transactional
     fun saveOrUpdatePreferences(username: String, request: SavePreferencesRequest): PreferencesResult<PreferencesResponse> {
-        // Validate request
-        when (val validation = request.validate()) {
+        // Validate enums (stays in service layer - would need custom validators)
+        when (val validation = request.validateEnums()) {
             is PreferencesValidationResult.Invalid -> {
                 logger.warn("Validation failed for user {}: {}", username, validation.message)
                 return PreferencesResult.Error(validation.message)

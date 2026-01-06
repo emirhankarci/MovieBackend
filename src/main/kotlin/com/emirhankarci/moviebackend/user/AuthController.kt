@@ -1,5 +1,9 @@
 package com.emirhankarci.moviebackend.user
 
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Email
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Size
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -7,16 +11,34 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 data class RegisterRequest(
+    @field:NotBlank(message = "Username cannot be empty")
+    @field:Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
     val username: String,
+    
+    @field:NotBlank(message = "Email cannot be empty")
+    @field:Email(message = "Invalid email format")
     val email: String,
+    
+    @field:NotBlank(message = "Password cannot be empty")
+    @field:Size(min = 8, message = "Password must be at least 8 characters")
     val password: String,
+    
+    @field:NotBlank(message = "Confirm password cannot be empty")
     val confirmPassword: String,
+    
+    @field:NotBlank(message = "First name cannot be empty")
     val firstName: String,
+    
+    @field:NotBlank(message = "Last name cannot be empty")
     val lastName: String
 )
 
 data class LoginRequest(
+    @field:NotBlank(message = "Email cannot be empty")
+    @field:Email(message = "Invalid email format")
     val email: String,
+    
+    @field:NotBlank(message = "Password cannot be empty")
     val password: String
 )
 
@@ -27,6 +49,7 @@ data class LoginResponse(
 )
 
 data class RefreshRequest(
+    @field:NotBlank(message = "Refresh token cannot be empty")
     val refreshToken: String
 )
 
@@ -35,6 +58,7 @@ data class TokenResponse(
 )
 
 data class LogoutRequest(
+    @field:NotBlank(message = "Refresh token cannot be empty")
     val refreshToken: String
 )
 
@@ -45,7 +69,7 @@ class AuthController(
 ) {
 
     @PostMapping("/register")
-    fun register(@RequestBody request: RegisterRequest): ResponseEntity<Any> {
+    fun register(@Valid @RequestBody request: RegisterRequest): ResponseEntity<Any> {
         return when (val result = authService.register(
             username = request.username,
             email = request.email,
@@ -60,7 +84,7 @@ class AuthController(
     }
 
     @PostMapping("/login")
-    fun login(@RequestBody request: LoginRequest): ResponseEntity<Any> {
+    fun login(@Valid @RequestBody request: LoginRequest): ResponseEntity<Any> {
         return when (val result = authService.login(request.email, request.password)) {
             is AuthResult.Success -> ResponseEntity.ok(result.data)
             is AuthResult.Error -> ResponseEntity.status(401).body(mapOf("message" to result.message))
@@ -68,7 +92,7 @@ class AuthController(
     }
 
     @PostMapping("/refresh")
-    fun refresh(@RequestBody request: RefreshRequest): ResponseEntity<Any> {
+    fun refresh(@Valid @RequestBody request: RefreshRequest): ResponseEntity<Any> {
         return when (val result = authService.refresh(request.refreshToken)) {
             is AuthResult.Success -> ResponseEntity.ok(result.data)
             is AuthResult.Error -> ResponseEntity.status(401).body(mapOf("message" to result.message))
@@ -76,7 +100,7 @@ class AuthController(
     }
 
     @PostMapping("/logout")
-    fun logout(@RequestBody request: LogoutRequest): ResponseEntity<Any> {
+    fun logout(@Valid @RequestBody request: LogoutRequest): ResponseEntity<Any> {
         return when (val result = authService.logout(request.refreshToken)) {
             is AuthResult.Success -> ResponseEntity.ok(mapOf("message" to result.data))
             is AuthResult.Error -> ResponseEntity.badRequest().body(mapOf("message" to result.message))

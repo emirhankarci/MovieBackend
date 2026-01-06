@@ -39,14 +39,6 @@ class UserCollectionService(
 
     @Transactional
     fun createCollection(username: String, request: CreateCollectionRequest): UserCollectionResult<CollectionResponse> {
-        when (val validation = request.validate()) {
-            is UserCollectionValidationResult.Invalid -> {
-                logger.warn("Validation failed for user {}: {}", username, validation.message)
-                return UserCollectionResult.Error("VALIDATION_ERROR", validation.message)
-            }
-            is UserCollectionValidationResult.Valid -> { /* continue */ }
-        }
-
         val user = userRepository.findByUsername(username)
             ?: return UserCollectionResult.Error("USER_NOT_FOUND", "User not found")
 
@@ -158,14 +150,6 @@ class UserCollectionService(
         collectionId: Long,
         request: UpdateCollectionRequest
     ): UserCollectionResult<CollectionResponse> {
-        when (val validation = request.validate()) {
-            is UserCollectionValidationResult.Invalid -> {
-                logger.warn("Validation failed for user {}: {}", username, validation.message)
-                return UserCollectionResult.Error("VALIDATION_ERROR", validation.message)
-            }
-            is UserCollectionValidationResult.Valid -> { /* continue */ }
-        }
-
         val user = userRepository.findByUsername(username)
             ?: return UserCollectionResult.Error("USER_NOT_FOUND", "User not found")
 
@@ -221,14 +205,6 @@ class UserCollectionService(
         collectionId: Long,
         request: AddMovieRequest
     ): UserCollectionResult<String> {
-        when (val validation = request.validate()) {
-            is UserCollectionValidationResult.Invalid -> {
-                logger.warn("Validation failed for user {}: {}", username, validation.message)
-                return UserCollectionResult.Error("VALIDATION_ERROR", validation.message)
-            }
-            is UserCollectionValidationResult.Valid -> { /* continue */ }
-        }
-
         val user = userRepository.findByUsername(username)
             ?: return UserCollectionResult.Error("USER_NOT_FOUND", "User not found")
 

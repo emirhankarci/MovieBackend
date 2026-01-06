@@ -17,15 +17,6 @@ class ReactionService(
 
     @Transactional
     fun addReaction(username: String, messageId: Long, request: ReactionRequest): ReactionResult<ReactionResponse> {
-        // Validate request
-        when (val validation = request.validate()) {
-            is ReactionValidationResult.Invalid -> {
-                logger.warn("Invalid reaction from user {}: {}", username, validation.message)
-                return ReactionResult.Error(validation.message, ReactionErrorCode.INVALID_REACTION)
-            }
-            is ReactionValidationResult.Valid -> { /* continue */ }
-        }
-
         val user = userRepository.findByUsername(username)
             ?: return ReactionResult.Error("User not found", ReactionErrorCode.USER_NOT_FOUND)
 

@@ -1,18 +1,14 @@
 package com.emirhankarci.moviebackend.chat
 
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Pattern
+
 data class ReactionRequest(
+    @field:NotBlank(message = "Reaction cannot be empty")
+    @field:Pattern(regexp = "(?i)^(like|dislike)$", message = "Reaction must be 'like' or 'dislike'")
     val reaction: String,
     val movieId: Int? = null
 ) {
-    fun validate(): ReactionValidationResult {
-        val normalizedReaction = reaction.lowercase().trim()
-        return when {
-            normalizedReaction != "like" && normalizedReaction != "dislike" -> 
-                ReactionValidationResult.Invalid("Reaction must be 'like' or 'dislike'")
-            else -> ReactionValidationResult.Valid
-        }
-    }
-
     fun toReactionType(): ReactionType {
         return when (reaction.lowercase().trim()) {
             "like" -> ReactionType.LIKE
@@ -39,9 +35,4 @@ enum class ReactionErrorCode {
     MESSAGE_NOT_FOUND,
     INVALID_REACTION,
     INTERNAL_ERROR
-}
-
-sealed class ReactionValidationResult {
-    data object Valid : ReactionValidationResult()
-    data class Invalid(val message: String) : ReactionValidationResult()
 }

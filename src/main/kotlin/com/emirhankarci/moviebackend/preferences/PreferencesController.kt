@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.preferences
 
+import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
@@ -11,7 +12,7 @@ class PreferencesController(
 ) {
 
     @PostMapping
-    fun savePreferences(@RequestBody request: SavePreferencesRequest): ResponseEntity<Any> {
+    fun savePreferences(@Valid @RequestBody request: SavePreferencesRequest): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
 

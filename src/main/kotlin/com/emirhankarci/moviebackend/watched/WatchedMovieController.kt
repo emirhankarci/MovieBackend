@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.watched
 
+import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
@@ -11,7 +12,7 @@ class WatchedMovieController(
 ) {
 
     @PostMapping
-    fun addWatchedMovie(@RequestBody request: WatchedMovieRequest): ResponseEntity<Any> {
+    fun addWatchedMovie(@Valid @RequestBody request: WatchedMovieRequest): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
 
@@ -59,7 +60,7 @@ class WatchedMovieController(
     }
 
     @PostMapping("/rate")
-    fun rateMovie(@RequestBody request: RateMovieRequest): ResponseEntity<Any> {
+    fun rateMovie(@Valid @RequestBody request: RateMovieRequest): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
 

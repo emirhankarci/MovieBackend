@@ -2,54 +2,36 @@ package com.emirhankarci.moviebackend.usercollection
 
 import com.emirhankarci.moviebackend.common.PageResponse
 import com.fasterxml.jackson.annotation.JsonFormat
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.Size
 import java.time.LocalDateTime
 
 // Request DTOs
 data class CreateCollectionRequest(
+    @field:NotBlank(message = "Collection name cannot be empty")
+    @field:Size(max = 255, message = "Collection name cannot exceed 255 characters")
     val name: String,
+    
     val description: String? = null
-) {
-    fun validate(): UserCollectionValidationResult {
-        if (name.isBlank()) {
-            return UserCollectionValidationResult.Invalid("Collection name cannot be empty")
-        }
-        if (name.length > 255) {
-            return UserCollectionValidationResult.Invalid("Collection name cannot exceed 255 characters")
-        }
-        return UserCollectionValidationResult.Valid
-    }
-}
+)
 
 data class UpdateCollectionRequest(
+    @field:Size(max = 255, message = "Collection name cannot exceed 255 characters")
     val name: String? = null,
+    
     val description: String? = null
-) {
-    fun validate(): UserCollectionValidationResult {
-        if (name != null && name.isBlank()) {
-            return UserCollectionValidationResult.Invalid("Collection name cannot be empty")
-        }
-        if (name != null && name.length > 255) {
-            return UserCollectionValidationResult.Invalid("Collection name cannot exceed 255 characters")
-        }
-        return UserCollectionValidationResult.Valid
-    }
-}
+)
 
 data class AddMovieRequest(
+    @field:Positive(message = "Movie ID must be greater than 0")
     val movieId: Long,
+    
+    @field:NotBlank(message = "Movie title cannot be empty")
     val movieTitle: String,
+    
     val posterPath: String? = null
-) {
-    fun validate(): UserCollectionValidationResult {
-        if (movieId <= 0) {
-            return UserCollectionValidationResult.Invalid("Movie ID must be greater than 0")
-        }
-        if (movieTitle.isBlank()) {
-            return UserCollectionValidationResult.Invalid("Movie title cannot be empty")
-        }
-        return UserCollectionValidationResult.Valid
-    }
-}
+)
 
 // Response DTOs
 data class CollectionResponse(
@@ -106,12 +88,6 @@ data class CollectionInfo(
 sealed class UserCollectionResult<out T> {
     data class Success<T>(val data: T) : UserCollectionResult<T>()
     data class Error(val code: String, val message: String) : UserCollectionResult<Nothing>()
-}
-
-// Validation sealed class
-sealed class UserCollectionValidationResult {
-    data object Valid : UserCollectionValidationResult()
-    data class Invalid(val message: String) : UserCollectionValidationResult()
 }
 
 // Error response

@@ -19,14 +19,6 @@ class WatchedMovieService(
 
     @Transactional
     fun addWatchedMovie(username: String, request: WatchedMovieRequest): WatchedMovieResult<String> {
-        when (val validation = request.validate()) {
-            is WatchedMovieValidationResult.Invalid -> {
-                logger.warn("Validation failed for user {}: {}", username, validation.message)
-                return WatchedMovieResult.Error(validation.message)
-            }
-            is WatchedMovieValidationResult.Valid -> { /* continue */ }
-        }
-
         val user = userRepository.findByUsername(username)
             ?: return WatchedMovieResult.Error("User not found!")
 
@@ -113,14 +105,6 @@ class WatchedMovieService(
 
     @Transactional
     fun rateMovie(username: String, request: RateMovieRequest): WatchedMovieResult<RateMovieResponse> {
-        when (val validation = request.validate()) {
-            is RatingValidationResult.Invalid -> {
-                logger.warn("Rating validation failed for user {}: {}", username, validation.message)
-                return WatchedMovieResult.Error(validation.message)
-            }
-            is RatingValidationResult.Valid -> { /* continue */ }
-        }
-
         val user = userRepository.findByUsername(username)
             ?: return WatchedMovieResult.Error("User not found!")
 

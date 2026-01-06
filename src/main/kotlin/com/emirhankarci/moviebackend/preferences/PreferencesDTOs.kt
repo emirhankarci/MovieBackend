@@ -1,25 +1,29 @@
 package com.emirhankarci.moviebackend.preferences
 
 import com.fasterxml.jackson.annotation.JsonFormat
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotEmpty
+import jakarta.validation.constraints.Positive
+import jakarta.validation.constraints.Size
 import java.time.LocalDateTime
 
 data class SavePreferencesRequest(
+    @field:NotEmpty(message = "At least one genre must be selected")
+    @field:Size(min = 3, message = "At least 3 genres must be selected")
     val genres: List<String>,
+    
+    @field:NotBlank(message = "Preferred era cannot be empty")
     val preferredEra: String,
+    
+    @field:NotEmpty(message = "At least one mood must be selected")
     val moods: List<String>,
-    val favoriteMovieIds: List<Long>
+    
+    @field:NotEmpty(message = "At least one favorite movie must be selected")
+    @field:Size(min = 3, message = "At least 3 favorite movies must be selected")
+    val favoriteMovieIds: List<@Positive(message = "Movie ID must be greater than 0") Long>
 ) {
-    fun validate(): PreferencesValidationResult {
-        // Check minimum 3 genres
-        if (genres.size < 3) {
-            return PreferencesValidationResult.Invalid("At least 3 genres must be selected")
-        }
-
-        // Check minimum 3 favorite movies
-        if (favoriteMovieIds.size < 3) {
-            return PreferencesValidationResult.Invalid("At least 3 favorite movies must be selected")
-        }
-
+    // Enum validation stays in service layer (would need custom validators)
+    fun validateEnums(): PreferencesValidationResult {
         // Validate each genre against enum
         for (genre in genres) {
             try {
@@ -51,13 +55,6 @@ data class SavePreferencesRequest(
                 return PreferencesValidationResult.Invalid(
                     "Invalid mood: $mood. Valid options: $validMoods"
                 )
-            }
-        }
-
-        // Validate movie IDs are positive
-        for (movieId in favoriteMovieIds) {
-            if (movieId <= 0) {
-                return PreferencesValidationResult.Invalid("Movie ID must be greater than 0")
             }
         }
 

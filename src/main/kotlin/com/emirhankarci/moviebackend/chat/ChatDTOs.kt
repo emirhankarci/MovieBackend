@@ -1,20 +1,14 @@
 package com.emirhankarci.moviebackend.chat
 
 import com.fasterxml.jackson.annotation.JsonFormat
+import jakarta.validation.constraints.NotBlank
 import java.time.LocalDateTime
 
 // Request DTOs
 data class SendMessageRequest(
+    @field:NotBlank(message = "Message cannot be empty")
     val message: String
-) {
-    fun validate(): ChatValidationResult {
-        return if (message.isBlank()) {
-            ChatValidationResult.Invalid("Message cannot be empty")
-        } else {
-            ChatValidationResult.Valid
-        }
-    }
-}
+)
 
 // Response DTOs
 data class ChatResponse(
@@ -56,9 +50,4 @@ enum class ChatErrorCode {
     AI_ERROR,
     VALIDATION_ERROR,
     INTERNAL_ERROR
-}
-
-sealed class ChatValidationResult {
-    data object Valid : ChatValidationResult()
-    data class Invalid(val message: String) : ChatValidationResult()
 }

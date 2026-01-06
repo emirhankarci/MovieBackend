@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.movie
 
+import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
@@ -11,7 +12,7 @@ class WatchlistController(
 ) {
 
     @PostMapping
-    fun toggleWatchlist(@RequestBody request: WatchlistRequest): ResponseEntity<Any> {
+    fun toggleWatchlist(@Valid @RequestBody request: WatchlistRequest): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
         

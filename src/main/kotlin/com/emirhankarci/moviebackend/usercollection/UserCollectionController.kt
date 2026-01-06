@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.usercollection
 
+import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
@@ -15,7 +16,7 @@ class UserCollectionController(
     }
 
     @PostMapping
-    fun createCollection(@RequestBody request: CreateCollectionRequest): ResponseEntity<Any> {
+    fun createCollection(@Valid @RequestBody request: CreateCollectionRequest): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
 
@@ -83,7 +84,7 @@ class UserCollectionController(
     @PutMapping("/{id}")
     fun updateCollection(
         @PathVariable id: Long,
-        @RequestBody request: UpdateCollectionRequest
+        @Valid @RequestBody request: UpdateCollectionRequest
     ): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
@@ -132,7 +133,7 @@ class UserCollectionController(
     @PostMapping("/{id}/movies")
     fun addMovieToCollection(
         @PathVariable id: Long,
-        @RequestBody request: AddMovieRequest
+        @Valid @RequestBody request: AddMovieRequest
     ): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
