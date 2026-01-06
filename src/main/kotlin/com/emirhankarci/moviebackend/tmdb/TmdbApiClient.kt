@@ -72,6 +72,30 @@ class TmdbApiClient(
             ?: throw TmdbApiException("Recommendations not found for movie: $movieId", HttpStatus.NOT_FOUND.value())
     }
 
+    // ==================== Actor Methods ====================
+
+    /**
+     * Oyuncu detaylarını getirir
+     */
+    fun getActorDetail(actorId: Long, language: String = "tr-TR"): TmdbActorDetailResponse {
+        val url = "$BASE_URL/person/$actorId?api_key=$apiKey&language=$language"
+        logger.debug("Fetching actor detail: actorId={}, language={}", actorId, language)
+        
+        return executeRequest(url, TmdbActorDetailResponse::class.java)
+            ?: throw TmdbApiException("Actor not found: $actorId", HttpStatus.NOT_FOUND.value())
+    }
+
+    /**
+     * Oyuncunun film kredilerini getirir
+     */
+    fun getActorMovieCredits(actorId: Long, language: String = "tr-TR"): TmdbActorMovieCreditsResponse {
+        val url = "$BASE_URL/person/$actorId/movie_credits?api_key=$apiKey&language=$language"
+        logger.debug("Fetching actor movie credits: actorId={}, language={}", actorId, language)
+        
+        return executeRequest(url, TmdbActorMovieCreditsResponse::class.java)
+            ?: throw TmdbApiException("Movie credits not found for actor: $actorId", HttpStatus.NOT_FOUND.value())
+    }
+
     /**
      * Poster path'i tam URL'e çevirir
      */

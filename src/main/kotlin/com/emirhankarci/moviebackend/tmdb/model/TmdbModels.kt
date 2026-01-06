@@ -84,3 +84,35 @@ data class TmdbRecommendationsResponse(
     val total_pages: Int,
     val total_results: Int
 )
+
+
+// ==================== Actor Detail ====================
+
+data class TmdbActorDetailResponse(
+    val id: Long,
+    val name: String,
+    val biography: String?,
+    val birthday: String?,
+    val deathday: String?,
+    val place_of_birth: String?,
+    val profile_path: String?,
+    val known_for_department: String?,
+    val popularity: Double?
+)
+
+// ==================== Actor Movie Credits ====================
+
+data class TmdbActorMovieCreditsResponse(
+    val id: Long,
+    val cast: List<TmdbActorMovieCredit>
+)
+
+data class TmdbActorMovieCredit(
+    val id: Long,
+    val title: String,
+    val character: String?,
+    val poster_path: String?,
+    val release_date: String?,
+    val vote_average: Double,
+    val vote_count: Int?
+)
