@@ -1,0 +1,86 @@
+package com.emirhankarci.moviebackend.tmdb.model
+
+/**
+ * TMDB API Response Models
+ * Bu modeller TMDB API'den gelen raw JSON response'ları temsil eder.
+ * snake_case field isimleri Jackson tarafından otomatik map edilir.
+ */
+
+// ==================== Popular Movies ====================
+
+data class TmdbPopularResponse(
+    val page: Int,
+    val results: List<TmdbMovieResult>,
+    val total_pages: Int,
+    val total_results: Int
+)
+
+data class TmdbMovieResult(
+    val id: Long,
+    val title: String,
+    val overview: String?,
+    val poster_path: String?,
+    val backdrop_path: String?,
+    val vote_average: Double,
+    val vote_count: Int,
+    val release_date: String?,
+    val popularity: Double?
+)
+
+// ==================== Movie Detail ====================
+
+data class TmdbMovieDetailResponse(
+    val id: Long,
+    val title: String,
+    val overview: String?,
+    val poster_path: String?,
+    val backdrop_path: String?,
+    val tagline: String?,
+    val runtime: Int?,
+    val release_date: String?,
+    val vote_average: Double,
+    val vote_count: Int,
+    val original_language: String,
+    val genres: List<TmdbGenre>,
+    val status: String?,
+    val budget: Long?,
+    val revenue: Long?
+)
+
+data class TmdbGenre(
+    val id: Int,
+    val name: String
+)
+
+// ==================== Movie Credits ====================
+
+data class TmdbCreditsResponse(
+    val id: Long,
+    val cast: List<TmdbCastMember>,
+    val crew: List<TmdbCrewMember>?
+)
+
+data class TmdbCastMember(
+    val id: Long,
+    val name: String,
+    val character: String?,
+    val profile_path: String?,
+    val order: Int?
+)
+
+data class TmdbCrewMember(
+    val id: Long,
+    val name: String,
+    val job: String?,
+    val department: String?,
+    val profile_path: String?
+)
+
+// ==================== Movie Recommendations ====================
+
+data class TmdbRecommendationsResponse(
+    val page: Int,
+    val results: List<TmdbMovieResult>,
+    val total_pages: Int,
+    val total_results: Int
+)
