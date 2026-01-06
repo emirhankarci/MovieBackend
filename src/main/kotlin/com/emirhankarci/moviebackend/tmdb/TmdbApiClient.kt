@@ -26,6 +26,7 @@ class TmdbApiClient(
         const val POSTER_SIZE = "w500"
         const val BACKDROP_SIZE = "w780"
         const val PROFILE_SIZE = "w185"
+        const val STILL_SIZE = "w300"
     }
 
     private val apiKey: String = System.getenv("TMDB_API_KEY")
@@ -118,6 +119,59 @@ class TmdbApiClient(
      */
     fun buildProfileUrl(path: String?): String? {
         return path?.let { "$IMAGE_BASE_URL/$PROFILE_SIZE$it" }
+    }
+
+    /**
+     * Still path'i tam URL'e çevirir (bölüm görselleri için)
+     */
+    fun buildStillUrl(path: String?): String? {
+        return path?.let { "$IMAGE_BASE_URL/$STILL_SIZE$it" }
+    }
+
+    // ==================== TV Series Methods ====================
+
+    /**
+     * TV dizisi detaylarını getirir
+     */
+    fun getTvSeriesDetail(seriesId: Long, language: String = "tr-TR"): TmdbTvSeriesDetailResponse {
+        val url = "$BASE_URL/tv/$seriesId?api_key=$apiKey&language=$language"
+        logger.debug("Fetching TV series detail: seriesId={}, language={}", seriesId, language)
+        
+        return executeRequest(url, TmdbTvSeriesDetailResponse::class.java)
+            ?: throw TmdbApiException("TV series not found: $seriesId", HttpStatus.NOT_FOUND.value())
+    }
+
+    /**
+     * TV dizisi sezon detaylarını getirir
+     */
+    fun getTvSeasonDetail(seriesId: Long, seasonNumber: Int, language: String = "tr-TR"): TmdbSeasonDetailResponse {
+        val url = "$BASE_URL/tv/$seriesId/season/$seasonNumber?api_key=$apiKey&language=$language"
+        logger.debug("Fetching TV season detail: seriesId={}, seasonNumber={}, language={}", seriesId, seasonNumber, language)
+        
+        return executeRequest(url, TmdbSeasonDetailResponse::class.java)
+            ?: throw TmdbApiException("Season not found: series=$seriesId, season=$seasonNumber", HttpStatus.NOT_FOUND.value())
+    }
+
+    /**
+     * TV dizisi bölüm detaylarını getirir
+     */
+    fun getTvEpisodeDetail(seriesId: Long, seasonNumber: Int, episodeNumber: Int, language: String = "tr-TR"): TmdbEpisodeDetailResponse {
+        val url = "$BASE_URL/tv/$seriesId/season/$seasonNumber/episode/$episodeNumber?api_key=$apiKey&language=$language"
+        logger.debug("Fetching TV episode detail: seriesId={}, seasonNumber={}, episodeNumber={}, language={}", seriesId, seasonNumber, episodeNumber, language)
+        
+        return executeRequest(url, TmdbEpisodeDetailResponse::class.java)
+            ?: throw TmdbApiException("Episode not found: series=$seriesId, season=$seasonNumber, episode=$episodeNumber", HttpStatus.NOT_FOUND.value())
+    }
+
+    /**
+     * TV dizisi kadrosunu getirir
+     */
+    fun getTvSeriesCredits(seriesId: Long): TmdbTvCreditsResponse {
+        val url = "$BASE_URL/tv/$seriesId/credits?api_key=$apiKey"
+        logger.debug("Fetching TV series credits: seriesId={}", seriesId)
+        
+        return executeRequest(url, TmdbTvCreditsResponse::class.java)
+            ?: throw TmdbApiException("Credits not found for TV series: $seriesId", HttpStatus.NOT_FOUND.value())
     }
 
     private fun <T : Any> executeRequest(url: String, responseType: Class<T>): T? {

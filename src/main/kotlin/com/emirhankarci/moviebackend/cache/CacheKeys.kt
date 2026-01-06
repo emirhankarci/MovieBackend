@@ -119,4 +119,26 @@ object CacheKeys {
         /** Pattern for all chat keys */
         const val PATTERN_ALL = "$PREFIX:*"
     }
+
+    // ==================== TV Series Keys ====================
+    
+    object TvSeries {
+        private const val PREFIX = "tv"
+        
+        /** tv:{seriesId} - Full TV series details */
+        fun detail(seriesId: Long): String = "$PREFIX:$seriesId"
+        
+        /** tv:{seriesId}:season:{seasonNumber} - Season details */
+        fun season(seriesId: Long, seasonNumber: Int): String = "$PREFIX:$seriesId:season:$seasonNumber"
+        
+        /** tv:{seriesId}:season:{seasonNumber}:episode:{episodeNumber} - Episode details */
+        fun episode(seriesId: Long, seasonNumber: Int, episodeNumber: Int): String = 
+            "$PREFIX:$seriesId:season:$seasonNumber:episode:$episodeNumber"
+        
+        /** tv:{seriesId}:credits - Cast and crew */
+        fun credits(seriesId: Long): String = "$PREFIX:$seriesId:credits"
+        
+        /** Pattern for all TV series keys */
+        const val PATTERN_ALL = "$PREFIX:*"
+    }
 }
