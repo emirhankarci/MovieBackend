@@ -57,6 +57,10 @@ dependencies {
     // Kotlin Coroutines (Paralel API çağrıları için)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.8.1")
+    
+    // Resilience4j (Circuit Breaker)
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.2.0")
+    implementation("io.github.resilience4j:resilience4j-kotlin:2.2.0")
 }
 
 kotlin {

@@ -1,5 +1,6 @@
 package com.emirhankarci.moviebackend.chat
 
+import com.emirhankarci.moviebackend.resilience.CircuitBreakerService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestClientException
@@ -11,7 +12,8 @@ import tools.jackson.module.kotlin.jacksonObjectMapper
 
 @Service
 class GeminiAiService(
-    private val restTemplate: RestTemplate
+    private val restTemplate: RestTemplate,
+    private val circuitBreakerService: CircuitBreakerService
 ) : AiService {
 
     companion object {
@@ -19,6 +21,9 @@ class GeminiAiService(
         private val objectMapper = jacksonObjectMapper()
         private const val GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
         private const val MAX_RETRY_ATTEMPTS = 2
+        
+        // Circuit breaker açıkken döndürülecek fallback mesajı
+        private const val CIRCUIT_BREAKER_FALLBACK_MESSAGE = """{"preMessage":"AI asistanı şu anda kullanılamıyor.","movieTitle":"The Shawshank Redemption","postMessage":"Lütfen daha sonra tekrar deneyin. Bu arada size klasik bir film öneriyorum!"}"""
         
         private const val SYSTEM_PROMPT = """
 Sen bir film öneri asistanısın. ANA GÖREVİN FİLM ÖNERMEKTİR.
@@ -108,38 +113,46 @@ Format: {"preMessage":"...","movieTitle":"İNGİLİZCE FİLM ADI","postMessage":
     }
 
     private fun callGeminiApi(conversationContext: List<ChatMessage>, userContext: String?, isRetry: Boolean): AiResult<String> {
-        return try {
-            val requestBody = buildRequestBody(conversationContext, userContext, isRetry)
-            val headers = HttpHeaders().apply {
-                contentType = MediaType.APPLICATION_JSON
-            }
-            val entity = HttpEntity(requestBody, headers)
-            val url = "$GEMINI_API_URL?key=$apiKey"
+        return circuitBreakerService.executeWithGeminiCircuitBreaker(
+            fallback = {
+                logger.warn("Gemini circuit breaker OPEN - returning fallback message")
+                AiResult.Success(CIRCUIT_BREAKER_FALLBACK_MESSAGE)
+            },
+            supplier = {
+                try {
+                    val requestBody = buildRequestBody(conversationContext, userContext, isRetry)
+                    val headers = HttpHeaders().apply {
+                        contentType = MediaType.APPLICATION_JSON
+                    }
+                    val entity = HttpEntity(requestBody, headers)
+                    val url = "$GEMINI_API_URL?key=$apiKey"
 
-            logger.debug("Calling Gemini API (retry={})", isRetry)
-            
-            val response = restTemplate.postForObject(url, entity, GeminiResponse::class.java)
-            val text = response?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-            
-            if (text != null) {
-                AiResult.Success(text)
-            } else {
-                AiResult.Error("AI returned empty response", AiErrorCode.INVALID_RESPONSE)
+                    logger.debug("Calling Gemini API (retry={})", isRetry)
+                    
+                    val response = restTemplate.postForObject(url, entity, GeminiResponse::class.java)
+                    val text = response?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                    
+                    if (text != null) {
+                        AiResult.Success(text)
+                    } else {
+                        AiResult.Error("AI returned empty response", AiErrorCode.INVALID_RESPONSE)
+                    }
+                } catch (e: RestClientException) {
+                    logger.error("Gemini API call failed: {}", e.message)
+                    when {
+                        e.message?.contains("timeout", ignoreCase = true) == true -> 
+                            AiResult.Error("AI service timed out", AiErrorCode.TIMEOUT)
+                        e.message?.contains("429") == true -> 
+                            AiResult.Error("AI service rate limited", AiErrorCode.RATE_LIMITED)
+                        else -> 
+                            AiResult.Error("AI service error: ${e.message}", AiErrorCode.API_ERROR)
+                    }
+                } catch (e: Exception) {
+                    logger.error("Unexpected error calling Gemini API: {}", e.message)
+                    AiResult.Error("Unexpected AI error", AiErrorCode.API_ERROR)
+                }
             }
-        } catch (e: RestClientException) {
-            logger.error("Gemini API call failed: {}", e.message)
-            when {
-                e.message?.contains("timeout", ignoreCase = true) == true -> 
-                    AiResult.Error("AI service timed out", AiErrorCode.TIMEOUT)
-                e.message?.contains("429") == true -> 
-                    AiResult.Error("AI service rate limited", AiErrorCode.RATE_LIMITED)
-                else -> 
-                    AiResult.Error("AI service error: ${e.message}", AiErrorCode.API_ERROR)
-            }
-        } catch (e: Exception) {
-            logger.error("Unexpected error calling Gemini API: {}", e.message)
-            AiResult.Error("Unexpected AI error", AiErrorCode.API_ERROR)
-        }
+        )
     }
 
 
@@ -290,51 +303,59 @@ Format: {"preMessage":"...","movieTitle":"İNGİLİZCE FİLM ADI","postMessage":
     }
 
     private fun callGeminiApiForSuggestions(prompt: String, isRetry: Boolean): AiResult<String> {
-        return try {
-            val contents = mutableListOf<GeminiContent>()
-            
-            // Add the suggestion prompt
-            contents.add(GeminiContent(
-                role = "user",
-                parts = listOf(GeminiPart(prompt))
-            ))
-            
-            // Add retry instruction if needed
-            if (isRetry) {
-                contents.add(GeminiContent(
-                    role = "user",
-                    parts = listOf(GeminiPart("""
+        return circuitBreakerService.executeWithGeminiCircuitBreaker(
+            fallback = {
+                logger.warn("Gemini circuit breaker OPEN - returning empty suggestions")
+                AiResult.Success("""{"recommendations": []}""")
+            },
+            supplier = {
+                try {
+                    val contents = mutableListOf<GeminiContent>()
+                    
+                    // Add the suggestion prompt
+                    contents.add(GeminiContent(
+                        role = "user",
+                        parts = listOf(GeminiPart(prompt))
+                    ))
+                    
+                    // Add retry instruction if needed
+                    if (isRetry) {
+                        contents.add(GeminiContent(
+                            role = "user",
+                            parts = listOf(GeminiPart("""
 ÖNCEKİ CEVABIN HATALI! Sadece JSON döndür.
 Format: {"recommendations": [{"title": "Film 1"}, {"title": "Film 2"}, {"title": "Film 3"}, {"title": "Film 4"}]}
 Markdown code block KULLANMA. Sadece JSON.
-                    """.trimIndent()))
-                ))
-            }
-            
-            val requestBody = GeminiRequest(contents = contents)
-            val headers = HttpHeaders().apply {
-                contentType = MediaType.APPLICATION_JSON
-            }
-            val entity = HttpEntity(requestBody, headers)
-            val url = "$GEMINI_API_URL?key=$apiKey"
+                            """.trimIndent()))
+                        ))
+                    }
+                    
+                    val requestBody = GeminiRequest(contents = contents)
+                    val headers = HttpHeaders().apply {
+                        contentType = MediaType.APPLICATION_JSON
+                    }
+                    val entity = HttpEntity(requestBody, headers)
+                    val url = "$GEMINI_API_URL?key=$apiKey"
 
-            logger.debug("Calling Gemini API for suggestions (retry={})", isRetry)
-            
-            val response = restTemplate.postForObject(url, entity, GeminiResponse::class.java)
-            val text = response?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-            
-            if (text != null) {
-                AiResult.Success(text)
-            } else {
-                AiResult.Error("AI returned empty response", AiErrorCode.INVALID_RESPONSE)
+                    logger.debug("Calling Gemini API for suggestions (retry={})", isRetry)
+                    
+                    val response = restTemplate.postForObject(url, entity, GeminiResponse::class.java)
+                    val text = response?.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                    
+                    if (text != null) {
+                        AiResult.Success(text)
+                    } else {
+                        AiResult.Error("AI returned empty response", AiErrorCode.INVALID_RESPONSE)
+                    }
+                } catch (e: RestClientException) {
+                    logger.error("Gemini API call failed: {}", e.message)
+                    AiResult.Error("AI service error: ${e.message}", AiErrorCode.API_ERROR)
+                } catch (e: Exception) {
+                    logger.error("Unexpected error calling Gemini API: {}", e.message)
+                    AiResult.Error("Unexpected AI error", AiErrorCode.API_ERROR)
+                }
             }
-        } catch (e: RestClientException) {
-            logger.error("Gemini API call failed: {}", e.message)
-            AiResult.Error("AI service error: ${e.message}", AiErrorCode.API_ERROR)
-        } catch (e: Exception) {
-            logger.error("Unexpected error calling Gemini API: {}", e.message)
-            AiResult.Error("Unexpected AI error", AiErrorCode.API_ERROR)
-        }
+        )
     }
 
     private fun validateSuggestionResponse(response: String): String? {
