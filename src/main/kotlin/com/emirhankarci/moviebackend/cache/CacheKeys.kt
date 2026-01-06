@@ -98,7 +98,25 @@ object CacheKeys {
         /** featured:movies - Featured movies list */
         const val MOVIES = "$PREFIX:movies"
         
+        /** featured:{timeWindow} - Trending movies by time window (day/week) */
+        fun trending(timeWindow: String): String = "$PREFIX:$timeWindow"
+        
         /** Pattern for all featured keys */
+        const val PATTERN_ALL = "$PREFIX:*"
+    }
+
+    // ==================== Chat Keys ====================
+    
+    object Chat {
+        private const val PREFIX = "chat"
+        
+        /** chat:search:{query} - Chat movie search results */
+        fun search(query: String): String {
+            val normalized = query.lowercase().trim().replace(" ", "_")
+            return "$PREFIX:search:$normalized"
+        }
+        
+        /** Pattern for all chat keys */
         const val PATTERN_ALL = "$PREFIX:*"
     }
 }

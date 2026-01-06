@@ -1,16 +1,20 @@
 package com.emirhankarci.moviebackend.search
 
+import com.emirhankarci.moviebackend.cache.CacheKeys
+import com.emirhankarci.moviebackend.cache.CacheService
 import com.emirhankarci.moviebackend.search.dto.*
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestTemplate
 import org.springframework.web.client.HttpClientErrorException
 import org.springframework.web.client.ResourceAccessException
+import java.security.MessageDigest
 
 @Service
 class MovieSearchService(
     private val restTemplate: RestTemplate,
-    private val qualityFilter: QualityFilter
+    private val qualityFilter: QualityFilter,
+    private val cacheService: CacheService
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(MovieSearchService::class.java)
@@ -21,6 +25,20 @@ class MovieSearchService(
         ?: throw IllegalStateException("TMDB_API_KEY environment variable must be set!")
 
     fun searchByName(query: String, page: Int, size: Int): SearchResult {
+        val cacheKey = CacheKeys.Search.results(query, page)
+        
+        // Check Redis cache first
+        cacheService.get(cacheKey, SearchCacheData::class.java)?.let { cachedData ->
+            logger.info("Redis cache HIT for search: {}", cacheKey)
+            val pagedMovies = cachedData.movies.take(size)
+            return SearchResult.Success(
+                movies = pagedMovies,
+                pagination = cachedData.pagination.copy(size = size)
+            )
+        }
+        
+        logger.info("Redis cache MISS for search: {}, fetching from TMDB", cacheKey)
+        
         return try {
             val tmdbPage = page + 1 // TMDB uses 1-based pagination
             val url = "$TMDB_API_URL/search/movie?api_key=$apiKey&query=${query.encodeUrl()}&language=tr-TR&page=$tmdbPage"
@@ -31,6 +49,15 @@ class MovieSearchService(
             val movies = response?.results?.map { it.toMovieDto() } ?: emptyList()
             val filteredMovies = qualityFilter.filter(movies)
             
+            // Cache all filtered results
+            val pagination = PaginationInfo(
+                currentPage = page,
+                totalPages = response?.total_pages ?: 0,
+                totalElements = filteredMovies.size,
+                size = size
+            )
+            cacheService.set(cacheKey, SearchCacheData(filteredMovies, pagination), CacheKeys.TTL.VERY_SHORT)
+            
             // Apply size limit
             val pagedMovies = filteredMovies.take(size)
             
@@ -39,12 +66,7 @@ class MovieSearchService(
             
             SearchResult.Success(
                 movies = pagedMovies,
-                pagination = PaginationInfo(
-                    currentPage = page,
-                    totalPages = response?.total_pages ?: 0,
-                    totalElements = filteredMovies.size,
-                    size = size
-                )
+                pagination = pagination
             )
         } catch (e: ResourceAccessException) {
             logger.error("TMDB API unavailable: {}", e.message)
@@ -59,6 +81,21 @@ class MovieSearchService(
     }
 
     fun discoverWithFilters(filters: DiscoverFilters, page: Int, size: Int): SearchResult {
+        val filtersHash = generateFiltersHash(filters)
+        val cacheKey = CacheKeys.Search.discover(filtersHash, page)
+        
+        // Check Redis cache first
+        cacheService.get(cacheKey, SearchCacheData::class.java)?.let { cachedData ->
+            logger.info("Redis cache HIT for discover: {}", cacheKey)
+            val pagedMovies = cachedData.movies.take(size)
+            return SearchResult.Success(
+                movies = pagedMovies,
+                pagination = cachedData.pagination.copy(size = size)
+            )
+        }
+        
+        logger.info("Redis cache MISS for discover: {}, fetching from TMDB", cacheKey)
+        
         return try {
             val tmdbPage = page + 1
             val sortType = SortType.fromSortBy(filters.sortBy)
@@ -98,6 +135,15 @@ class MovieSearchService(
             // Apply rating range filters (TMDB doesn't support exact rating filters well)
             movies = applyRatingFilters(movies, filters)
             
+            // Cache all filtered results
+            val pagination = PaginationInfo(
+                currentPage = page,
+                totalPages = response?.total_pages ?: 0,
+                totalElements = movies.size,
+                size = size
+            )
+            cacheService.set(cacheKey, SearchCacheData(movies, pagination), CacheKeys.TTL.VERY_SHORT)
+            
             // Apply size limit
             val pagedMovies = movies.take(size)
             
@@ -105,12 +151,7 @@ class MovieSearchService(
             
             SearchResult.Success(
                 movies = pagedMovies,
-                pagination = PaginationInfo(
-                    currentPage = page,
-                    totalPages = response?.total_pages ?: 0,
-                    totalElements = movies.size,
-                    size = size
-                )
+                pagination = pagination
             )
         } catch (e: ResourceAccessException) {
             logger.error("TMDB API unavailable: {}", e.message)
@@ -122,6 +163,12 @@ class MovieSearchService(
             logger.error("Discover failed: {}", e.message)
             SearchResult.Error("DISCOVER_ERROR", "Keşif sırasında bir hata oluştu")
         }
+    }
+
+    private fun generateFiltersHash(filters: DiscoverFilters): String {
+        val filterString = "${filters.genre}_${filters.year}_${filters.minRating}_${filters.maxRating}_${filters.sortBy}"
+        val bytes = MessageDigest.getInstance("MD5").digest(filterString.toByteArray())
+        return bytes.joinToString("") { "%02x".format(it) }.take(12)
     }
 
     private fun applyRatingFilters(movies: List<MovieDto>, filters: DiscoverFilters): List<MovieDto> {
@@ -149,6 +196,12 @@ class MovieSearchService(
         )
     }
 }
+
+// Cache data wrapper
+data class SearchCacheData(
+    val movies: List<MovieDto>,
+    val pagination: PaginationInfo
+)
 
 // TMDB Response models
 data class TmdbSearchResponse(

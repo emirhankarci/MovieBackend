@@ -1,22 +1,32 @@
 package com.emirhankarci.moviebackend.chat
 
+import com.emirhankarci.moviebackend.cache.CacheKeys
+import com.emirhankarci.moviebackend.cache.CacheService
+import com.emirhankarci.moviebackend.tmdb.TmdbApiClient
+import com.emirhankarci.moviebackend.tmdb.dto.MovieDetailResponse
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.web.client.RestTemplate
 
 @Service
 class TmdbService(
-    private val restTemplate: RestTemplate
+    private val tmdbApiClient: TmdbApiClient,
+    private val cacheService: CacheService
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(TmdbService::class.java)
-        private const val TMDB_API_URL = "https://api.themoviedb.org/3"
     }
 
-    private val apiKey: String = System.getenv("TMDB_API_KEY")
-        ?: throw IllegalStateException("TMDB_API_KEY environment variable must be set!")
-
     fun searchMovie(movieTitle: String): MovieData? {
+        val cacheKey = CacheKeys.Chat.search(movieTitle)
+        
+        // Check Redis cache first
+        cacheService.get(cacheKey, MovieData::class.java)?.let { cached ->
+            logger.info("Redis cache HIT for chat search: {}", movieTitle)
+            return cached
+        }
+        
+        logger.info("Redis cache MISS for chat search: {}, fetching from TMDB", movieTitle)
+        
         return try {
             // First try with Turkish language
             var movie = searchMovieWithLanguage(movieTitle, "tr-TR")
@@ -34,6 +44,11 @@ class TmdbService(
                 movie = searchMovieWithLanguage(cleanTitle, "en-US")
             }
             
+            // Cache the result if found
+            movie?.let {
+                cacheService.set(cacheKey, it, CacheKeys.TTL.SHORT)
+            }
+            
             movie
         } catch (e: Exception) {
             logger.error("TMDB search failed for '{}': {}", movieTitle, e.message)
@@ -43,10 +58,10 @@ class TmdbService(
 
     private fun searchMovieWithLanguage(movieTitle: String, language: String): MovieData? {
         return try {
-            val url = "$TMDB_API_URL/search/movie?api_key=$apiKey&query=${movieTitle.encodeUrl()}&language=$language"
-            logger.debug("TMDB search URL: {}", url.replace(apiKey, "***"))
+            val url = "https://api.themoviedb.org/3/search/movie?api_key=${getApiKey()}&query=${movieTitle.encodeUrl()}&language=$language"
+            logger.debug("TMDB search URL: {}", url.replace(getApiKey(), "***"))
             
-            val response = restTemplate.getForObject(url, TmdbSearchResponse::class.java)
+            val response = org.springframework.web.client.RestTemplate().getForObject(url, TmdbSearchResponse::class.java)
             logger.debug("TMDB response: {} results", response?.results?.size ?: 0)
             
             val movie = response?.results?.firstOrNull()
@@ -70,23 +85,31 @@ class TmdbService(
     }
 
     fun getMovieById(movieId: Long): MovieData? {
+        val cacheKey = CacheKeys.Movie.detail(movieId)
+        
+        // Try to get from existing movie detail cache
+        cacheService.get(cacheKey, MovieDetailResponse::class.java)?.let { cached ->
+            logger.info("Redis cache HIT for movie detail (chat): {}", movieId)
+            return MovieData(
+                id = cached.id,
+                title = cached.title,
+                posterPath = cached.posterPath,
+                rating = cached.voteAverage,
+                voteCount = 0 // Not available in MovieDetailResponse
+            )
+        }
+        
         return try {
-            val url = "$TMDB_API_URL/movie/$movieId?api_key=$apiKey&language=tr-TR"
-            val response = restTemplate.getForObject(url, TmdbMovieDetail::class.java)
+            val detail = tmdbApiClient.getMovieDetail(movieId)
+            logger.info("Fetched movie by ID: {} ({})", detail.title, movieId)
             
-            if (response != null) {
-                logger.info("Fetched movie by ID: {} ({})", response.title, movieId)
-                MovieData(
-                    id = response.id,
-                    title = response.title,
-                    posterPath = response.poster_path,
-                    rating = response.vote_average,
-                    voteCount = response.vote_count
-                )
-            } else {
-                logger.warn("Movie not found by ID: {}", movieId)
-                null
-            }
+            MovieData(
+                id = detail.id,
+                title = detail.title,
+                posterPath = tmdbApiClient.buildPosterUrl(detail.poster_path),
+                rating = detail.vote_average,
+                voteCount = detail.vote_count
+            )
         } catch (e: Exception) {
             logger.error("TMDB fetch by ID failed for '{}': {}", movieId, e.message)
             null
@@ -104,6 +127,9 @@ class TmdbService(
         }
         return isValid
     }
+
+    private fun getApiKey(): String = System.getenv("TMDB_API_KEY")
+        ?: throw IllegalStateException("TMDB_API_KEY environment variable must be set!")
 
     private fun String.encodeUrl(): String {
         return java.net.URLEncoder.encode(this, "UTF-8")
@@ -130,13 +156,4 @@ data class MovieData(
     val posterPath: String?,
     val rating: Double,
     val voteCount: Int
-)
-
-// TMDB Movie Detail Response (for getMovieById)
-data class TmdbMovieDetail(
-    val id: Long,
-    val title: String,
-    val poster_path: String?,
-    val vote_average: Double,
-    val vote_count: Int
 )

@@ -46,3 +46,11 @@ data class TmdbMovieDetails(
     val id: Long,
     val tagline: String?
 )
+
+
+/**
+ * Wrapper for caching featured movies list
+ */
+data class FeaturedMoviesCacheData(
+    val movies: List<FeaturedMovie>
+)

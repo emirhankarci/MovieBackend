@@ -1,5 +1,7 @@
 package com.emirhankarci.moviebackend.featured
 
+import com.emirhankarci.moviebackend.cache.CacheKeys
+import com.emirhankarci.moviebackend.cache.CacheService
 import com.emirhankarci.moviebackend.search.TmdbGenreMapper
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -10,7 +12,7 @@ import org.springframework.web.client.RestTemplate
 @Service
 class FeaturedMoviesService(
     private val restTemplate: RestTemplate,
-    private val cache: FeaturedMoviesCache
+    private val cacheService: CacheService
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(FeaturedMoviesService::class.java)
@@ -29,19 +31,19 @@ class FeaturedMoviesService(
         ?: throw IllegalStateException("TMDB_API_KEY environment variable must be set!")
 
     /**
-     * Get featured movies with caching
+     * Get featured movies with Redis caching
      */
     fun getFeaturedMovies(timeWindow: TimeWindow, limit: Int): FeaturedMoviesResult {
         val effectiveLimit = clampLimit(limit)
-        val cacheKey = cache.buildKey(timeWindow)
+        val cacheKey = CacheKeys.Featured.trending(timeWindow.value)
         
-        // Check cache first
-        cache.get(cacheKey)?.let { cachedMovies ->
-            logger.info("Cache hit for {}", cacheKey)
-            return FeaturedMoviesResult.Success(cachedMovies.take(effectiveLimit))
+        // Check Redis cache first
+        cacheService.get(cacheKey, FeaturedMoviesCacheData::class.java)?.let { cachedData ->
+            logger.info("Redis cache HIT for featured movies: {}", cacheKey)
+            return FeaturedMoviesResult.Success(cachedData.movies.take(effectiveLimit))
         }
         
-        logger.info("Cache miss for {}, fetching from TMDB", cacheKey)
+        logger.info("Redis cache MISS for featured movies: {}, fetching from TMDB", cacheKey)
         
         return try {
             val trendingMovies = fetchTrendingMovies(timeWindow)
@@ -49,8 +51,9 @@ class FeaturedMoviesService(
             val qualityMovies = applyQualityFilter(filteredMovies)
             val featuredMovies = transformToFeaturedMovies(qualityMovies)
             
-            // Cache the results
-            cache.put(cacheKey, featuredMovies, timeWindow.cacheTtlHours)
+            // Cache the results in Redis
+            val ttl = if (timeWindow == TimeWindow.DAY) CacheKeys.TTL.SHORT else CacheKeys.TTL.MEDIUM
+            cacheService.set(cacheKey, FeaturedMoviesCacheData(featuredMovies), ttl)
             
             logger.info("Fetched {} featured movies for {}", featuredMovies.size, timeWindow.value)
             FeaturedMoviesResult.Success(featuredMovies.take(effectiveLimit))

@@ -14,7 +14,9 @@ data class CacheEntry<T>(
 
 /**
  * In-memory cache for featured movies with TTL support
+ * @deprecated Use CacheService (Redis) instead. This class is kept for backward compatibility.
  */
+@Deprecated("Use CacheService (Redis) instead", ReplaceWith("CacheService"))
 @Component
 class FeaturedMoviesCache {
     
