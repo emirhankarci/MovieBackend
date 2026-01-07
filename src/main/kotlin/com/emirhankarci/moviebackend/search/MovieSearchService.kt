@@ -31,9 +31,9 @@ class MovieSearchService(
         // Check Redis cache first
         cacheService.get(cacheKey, SearchCacheData::class.java)?.let { cachedData ->
             logger.info("Redis cache HIT for search: {}", cacheKey)
-            val pagedMovies = cachedData.movies.take(size)
+            val pagedResults = cachedData.results.take(size)
             return SearchResult.Success(
-                movies = pagedMovies,
+                results = pagedResults,
                 pagination = cachedData.pagination.copy(size = size)
             )
         }
@@ -42,39 +42,39 @@ class MovieSearchService(
         
         return try {
             val tmdbPage = page + 1 // TMDB uses 1-based pagination
-            val url = "$TMDB_API_URL/search/movie?api_key=$apiKey&query=${query.encodeUrl()}&language=tr-TR&page=$tmdbPage"
+            val url = "$TMDB_API_URL/search/multi?api_key=$apiKey&query=${query.encodeUrl()}&language=tr-TR&page=$tmdbPage"
             
-            logger.info("Searching TMDB for: {}", query)
+            logger.info("Searching TMDB (multi) for: {}", query)
             val response = restTemplate.getForObject(url, TmdbSearchResponse::class.java)
             
-            val movies = response?.results?.map { it.toMovieDto() } ?: emptyList()
-            val filteredMovies = qualityFilter.filter(movies)
+            val results = response?.results?.mapNotNull { it.toSearchItemDto() } ?: emptyList()
+            // Note: Quality filter might need adjustment for mixed types, currently skipping for non-movies or applying selective filtering
+            // For now, we return everything from multi-search as it's more relevant
             
-            // Cache all filtered results
+            // Cache all results
             val pagination = PaginationInfo(
                 currentPage = page,
                 totalPages = response?.total_pages ?: 0,
-                totalElements = filteredMovies.size,
+                totalElements = results.size,
                 size = size
             )
-            cacheService.set(cacheKey, SearchCacheData(filteredMovies, pagination), CacheKeys.TTL.VERY_SHORT)
+            cacheService.set(cacheKey, SearchCacheData(results, pagination), CacheKeys.TTL.VERY_SHORT)
             
             // Apply size limit
-            val pagedMovies = filteredMovies.take(size)
+            val pagedResults = results.take(size)
             
-            logger.info("Found {} movies, {} after quality filter, returning {}", 
-                movies.size, filteredMovies.size, pagedMovies.size)
+            logger.info("Found {} items, returning {}", results.size, pagedResults.size)
             
             SearchResult.Success(
-                movies = pagedMovies,
+                results = pagedResults,
                 pagination = pagination
             )
         } catch (e: ResourceAccessException) {
             logger.error("TMDB API unavailable: {}", e.message)
-            SearchResult.Error("EXTERNAL_SERVICE_ERROR", "Film servisi şu anda kullanılamıyor")
+            SearchResult.Error("EXTERNAL_SERVICE_ERROR", "Arama servisi şu anda kullanılamıyor")
         } catch (e: HttpClientErrorException) {
             logger.error("TMDB API error: {}", e.message)
-            SearchResult.Error("EXTERNAL_SERVICE_ERROR", "Film arama hatası")
+            SearchResult.Error("EXTERNAL_SERVICE_ERROR", "Arama hatası")
         } catch (e: Exception) {
             logger.error("Search failed: {}", e.message)
             SearchResult.Error("SEARCH_ERROR", "Arama sırasında bir hata oluştu")
@@ -88,9 +88,9 @@ class MovieSearchService(
         // Check Redis cache first
         cacheService.get(cacheKey, SearchCacheData::class.java)?.let { cachedData ->
             logger.info("Redis cache HIT for discover: {}", cacheKey)
-            val pagedMovies = cachedData.movies.take(size)
+            val pagedResults = cachedData.results.take(size)
             return SearchResult.Success(
-                movies = pagedMovies,
+                results = pagedResults,
                 pagination = cachedData.pagination.copy(size = size)
             )
         }
@@ -136,22 +136,35 @@ class MovieSearchService(
             // Apply rating range filters (TMDB doesn't support exact rating filters well)
             movies = applyRatingFilters(movies, filters)
             
+            // Convert to SearchItemDto
+            val results = movies.map { movie ->
+                SearchItemDto(
+                    id = movie.id,
+                    title = movie.title,
+                    posterPath = movie.posterPath,
+                    mediaType = "movie",
+                    releaseDate = movie.releaseDate,
+                    rating = movie.rating,
+                    overview = movie.overview
+                )
+            }
+            
             // Cache all filtered results
             val pagination = PaginationInfo(
                 currentPage = page,
                 totalPages = response?.total_pages ?: 0,
-                totalElements = movies.size,
+                totalElements = results.size,
                 size = size
             )
-            cacheService.set(cacheKey, SearchCacheData(movies, pagination), CacheKeys.TTL.VERY_SHORT)
+            cacheService.set(cacheKey, SearchCacheData(results, pagination), CacheKeys.TTL.VERY_SHORT)
             
             // Apply size limit
-            val pagedMovies = movies.take(size)
+            val pagedResults = results.take(size)
             
-            logger.info("Discovered {} movies after all filters, returning {}", movies.size, pagedMovies.size)
+            logger.info("Discovered {} movies after all filters, returning {}", movies.size, pagedResults.size)
             
             SearchResult.Success(
-                movies = pagedMovies,
+                results = pagedResults,
                 pagination = pagination
             )
         } catch (e: ResourceAccessException) {
@@ -184,13 +197,38 @@ class MovieSearchService(
         return java.net.URLEncoder.encode(this, "UTF-8")
     }
 
+    private fun TmdbMovieResult.toSearchItemDto(): SearchItemDto? {
+        val mediaType = this.media_type ?: "movie" // Default to movie if missing
+        
+        // Determine title/name
+        val title = this.title ?: this.name
+        if (title.isNullOrBlank()) return null // Skip items without title/name
+
+        // Determine date
+        val date = this.release_date ?: this.first_air_date
+        
+        // Determine image
+        val imagePath = this.poster_path ?: this.profile_path
+        val fullImagePath = if (imagePath != null) ImageUrlBuilder.buildPosterUrl(imagePath) else null
+
+        return SearchItemDto(
+            id = this.id,
+            title = title,
+            posterPath = fullImagePath,
+            mediaType = mediaType,
+            releaseDate = date,
+            rating = this.vote_average,
+            overview = this.overview
+        )
+    }
+
     private fun TmdbMovieResult.toMovieDto(): MovieDto {
         return MovieDto(
             id = this.id,
-            title = this.title,
+            title = this.title ?: "",
             posterPath = ImageUrlBuilder.buildPosterUrl(this.poster_path),
-            rating = this.vote_average,
-            voteCount = this.vote_count,
+            rating = this.vote_average ?: 0.0,
+            voteCount = this.vote_count ?: 0,
             releaseDate = this.release_date,
             overview = this.overview,
             genres = this.genre_ids?.map { TmdbGenreMapper.getGenreName(it) } ?: emptyList()
@@ -200,7 +238,7 @@ class MovieSearchService(
 
 // Cache data wrapper
 data class SearchCacheData(
-    val movies: List<MovieDto>,
+    val results: List<SearchItemDto>,
     val pagination: PaginationInfo
 )
 
@@ -213,11 +251,15 @@ data class TmdbSearchResponse(
 
 data class TmdbMovieResult(
     val id: Long,
-    val title: String,
-    val poster_path: String?,
-    val vote_average: Double,
-    val vote_count: Int,
-    val release_date: String?,
+    val title: String?, // movie
+    val name: String?, // tv/person
+    val poster_path: String?, // movie/tv
+    val profile_path: String?, // person
+    val media_type: String?, // movie/tv/person
+    val vote_average: Double?,
+    val vote_count: Int?,
+    val release_date: String?, // movie
+    val first_air_date: String?, // tv
     val overview: String?,
     val genre_ids: List<Int>?
 )
@@ -225,7 +267,7 @@ data class TmdbMovieResult(
 // Search result sealed class
 sealed class SearchResult {
     data class Success(
-        val movies: List<MovieDto>,
+        val results: List<SearchItemDto>, // changed from movies: List<MovieDto>
         val pagination: PaginationInfo
     ) : SearchResult()
     

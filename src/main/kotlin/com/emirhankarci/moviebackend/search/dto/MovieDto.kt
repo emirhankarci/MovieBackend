@@ -12,7 +12,7 @@ data class MovieDto(
 )
 
 data class SearchResponse(
-    val movies: List<MovieDto>,
+    val results: List<SearchItemDto>,
     val pagination: PaginationInfo
 )
 

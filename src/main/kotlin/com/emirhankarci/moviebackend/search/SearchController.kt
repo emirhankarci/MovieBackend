@@ -7,15 +7,15 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
 
 @RestController
-@RequestMapping("/api/movies")
+@RequestMapping("/api/search")
 class SearchController(
     private val movieSearchService: MovieSearchService,
     private val searchHistoryService: SearchHistoryService,
     private val userRepository: UserRepository
 ) {
 
-    @GetMapping("/search")
-    fun searchMovies(
+    @GetMapping("/multi")
+    fun searchMulti(
         @RequestParam query: String,
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int
@@ -36,12 +36,12 @@ class SearchController(
             is SearchResult.Success -> {
                 // Record search history asynchronously
                 userId?.let { 
-                    searchHistoryService.recordSearch(it, query, result.movies.size) 
+                    searchHistoryService.recordSearch(it, query, result.results.size) 
                 }
                 
                 ResponseEntity.ok(
                     SearchResponse(
-                        movies = result.movies,
+                        results = result.results,
                         pagination = result.pagination
                     )
                 )
@@ -111,12 +111,12 @@ class SearchController(
             is SearchResult.Success -> {
                 // Record discover history asynchronously
                 userId?.let { 
-                    searchHistoryService.recordDiscover(it, filters, result.movies.size) 
+                    searchHistoryService.recordDiscover(it, filters, result.results.size) 
                 }
                 
                 ResponseEntity.ok(
                     SearchResponse(
-                        movies = result.movies,
+                        results = result.results,
                         pagination = result.pagination
                     )
                 )

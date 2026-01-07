@@ -30,7 +30,15 @@ object TmdbGenreMapper {
         "THRILLER" to 53,
         "TV_MOVIE" to 10770,
         "WAR" to 10752,
-        "WESTERN" to 37
+        "WESTERN" to 37,
+        "ACTION_ADVENTURE" to 10759,
+        "KIDS" to 10762,
+        "NEWS" to 10763,
+        "REALITY" to 10764,
+        "SCIFI_FANTASY" to 10765,
+        "SOAP" to 10766,
+        "TALK" to 10767,
+        "WAR_POLITICS" to 10768
     )
     
     private val idToGenreMap = mapOf(
