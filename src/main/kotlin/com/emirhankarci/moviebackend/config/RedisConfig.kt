@@ -1,5 +1,7 @@
 package com.emirhankarci.moviebackend.config
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.cache.CacheManager
 import org.springframework.cache.annotation.EnableCaching
@@ -16,6 +18,11 @@ import java.time.Duration
 @Configuration
 @EnableCaching
 class RedisConfig {
+
+    @Bean
+    fun objectMapper(): ObjectMapper {
+        return jacksonObjectMapper().findAndRegisterModules()
+    }
 
     @Value("\${cache.default-ttl-hours:24}")
     private var defaultTtlHours: Long = 24
