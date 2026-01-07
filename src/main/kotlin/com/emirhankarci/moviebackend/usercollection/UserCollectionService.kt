@@ -250,6 +250,7 @@ class UserCollectionService(
         return UserCollectionResult.Success("Movie removed from collection")
     }
 
+    @Transactional(readOnly = true)
     fun getMovieCollectionStatus(username: String, movieId: Long): UserCollectionResult<MovieCollectionStatusResponse> {
         val user = userRepository.findByUsername(username)
             ?: return UserCollectionResult.Error("USER_NOT_FOUND", "User not found")
