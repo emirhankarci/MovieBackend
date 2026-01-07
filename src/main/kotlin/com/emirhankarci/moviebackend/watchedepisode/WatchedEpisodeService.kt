@@ -5,9 +5,13 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
+import com.emirhankarci.moviebackend.tvseries.TvSeriesService
+import kotlinx.coroutines.*
+
 @Service
 class WatchedEpisodeService(
-    private val watchedEpisodeRepository: WatchedEpisodeRepository
+    private val watchedEpisodeRepository: WatchedEpisodeRepository,
+    private val tvSeriesService: TvSeriesService
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(WatchedEpisodeService::class.java)
@@ -116,30 +120,57 @@ class WatchedEpisodeService(
         return WatchedEpisodesResponse(seriesId, seriesName, seasons)
     }
 
-    fun getWatchProgress(user: User, seriesId: Long, seasonEpisodeCounts: Map<Int, Int>): WatchProgressResponse {
+    fun getWatchProgress(user: User, seriesId: Long, clientProvidedCounts: Map<Int, Int>? = null): WatchProgressResponse {
+        // 1. Get watched episodes from DB
         val watchedEpisodes = watchedEpisodeRepository.findByUserIdAndSeriesId(user.id!!, seriesId)
+
+        // 2. Fetch series details to get season list
+        val seriesDetail = tvSeriesService.getSeriesDetail(seriesId)
         
-        val totalEpisodes = seasonEpisodeCounts.values.sum()
-        val watchedCount = watchedEpisodes.size
-        
-        val seasonProgress = seasonEpisodeCounts.map { (seasonNumber, totalInSeason) ->
-            val watchedInSeason = watchedEpisodes.count { it.seasonNumber == seasonNumber }
+        // 3. Fetch season details in parallel to get accurate episode counts
+        val seasonDetails = runBlocking(Dispatchers.IO) {
+            seriesDetail.seasons.map { seasonSummary ->
+                async {
+                    try {
+                        tvSeriesService.getSeasonDetail(seriesId, seasonSummary.seasonNumber)
+                    } catch (e: Exception) {
+                        logger.error("Failed to fetch season detail for series {} season {}", seriesId, seasonSummary.seasonNumber, e)
+                        null
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }
+
+        // 4. Calculate stats per season
+        val seasonProgressList = seasonDetails.map { season ->
+            val totalEpisodes = season.episodes.size
+            // Count watched episodes for this specific season
+            // We use count { ... } to ensure we only count episodes that actually exist in the season
+            val watchedInSeason = watchedEpisodes.filter { 
+                it.seasonNumber == season.seasonNumber && 
+                season.episodes.any { ep -> ep.episodeNumber == it.episodeNumber }
+            }.size
+            
             SeasonProgressDto(
-                seasonNumber = seasonNumber,
-                totalEpisodes = totalInSeason,
+                seasonNumber = season.seasonNumber,
+                totalEpisodes = totalEpisodes,
                 watchedEpisodes = watchedInSeason,
-                progressPercentage = if (totalInSeason > 0) 
-                    (watchedInSeason.toDouble() / totalInSeason * 100).roundTo(1) else 0.0
+                progressPercentage = if (totalEpisodes > 0) 
+                    (watchedInSeason.toDouble() / totalEpisodes * 100).roundTo(1) else 0.0
             )
         }.sortedBy { it.seasonNumber }
+
+        // 5. Calculate total stats
+        val totalEpisodes = seasonProgressList.sumOf { it.totalEpisodes }
+        val grandTotalWatched = seasonProgressList.sumOf { it.watchedEpisodes }
 
         return WatchProgressResponse(
             seriesId = seriesId,
             totalEpisodes = totalEpisodes,
-            watchedEpisodes = watchedCount,
+            watchedEpisodes = grandTotalWatched,
             progressPercentage = if (totalEpisodes > 0) 
-                (watchedCount.toDouble() / totalEpisodes * 100).roundTo(1) else 0.0,
-            seasonProgress = seasonProgress
+                (grandTotalWatched.toDouble() / totalEpisodes * 100).roundTo(1) else 0.0,
+            seasonProgress = seasonProgressList
         )
     }
 
@@ -148,13 +179,41 @@ class WatchedEpisodeService(
         val pageable = org.springframework.data.domain.PageRequest.of(page, size)
         val watchedSeriesPage = watchedEpisodeRepository.findWatchedSeriesByUserId(user.id!!, pageable)
         
-        return com.emirhankarci.moviebackend.common.PageResponse.from(watchedSeriesPage) {
-            WatchedSeriesDto(
-                seriesId = it.seriesId,
-                seriesName = it.seriesName,
-                lastWatchedAt = it.lastWatchedAt
-            )
+        // Fetch details for all series in the page in parallel to get images
+        val enrichedContent = runBlocking(Dispatchers.IO) {
+            watchedSeriesPage.content.map { summary ->
+                async {
+                    try {
+                        val details = tvSeriesService.getSeriesDetail(summary.seriesId)
+                        WatchedSeriesDto(
+                            seriesId = summary.seriesId,
+                            seriesName = summary.seriesName,
+                            lastWatchedAt = summary.lastWatchedAt,
+                            posterPath = details.posterPath,
+                            backdropPath = details.backdropPath
+                        )
+                    } catch (e: Exception) {
+                        logger.error("Failed to fetch details for series {}", summary.seriesId, e)
+                        // Fallback to basic info if fetch fails
+                        WatchedSeriesDto(
+                            seriesId = summary.seriesId,
+                            seriesName = summary.seriesName,
+                            lastWatchedAt = summary.lastWatchedAt
+                        )
+                    }
+                }
+            }.awaitAll()
         }
+        
+        return com.emirhankarci.moviebackend.common.PageResponse(
+            content = enrichedContent,
+            page = watchedSeriesPage.number,
+            size = watchedSeriesPage.size,
+            totalElements = watchedSeriesPage.totalElements,
+            totalPages = watchedSeriesPage.totalPages,
+            hasNext = watchedSeriesPage.hasNext(),
+            hasPrevious = watchedSeriesPage.hasPrevious()
+        )
     }
 
     fun checkEpisodeStatus(user: User, seriesId: Long, seasonNumber: Int, episodeNumber: Int): EpisodeWatchStatusResponse {

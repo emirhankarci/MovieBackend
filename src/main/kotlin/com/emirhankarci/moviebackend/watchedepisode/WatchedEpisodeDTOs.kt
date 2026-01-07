@@ -83,7 +83,9 @@ data class WatchedSeriesSummary(
 data class WatchedSeriesDto(
     val seriesId: Long,
     val seriesName: String,
-    val lastWatchedAt: LocalDateTime
+    val lastWatchedAt: LocalDateTime,
+    val posterPath: String? = null,
+    val backdropPath: String? = null
 )
 
 // Result wrapper

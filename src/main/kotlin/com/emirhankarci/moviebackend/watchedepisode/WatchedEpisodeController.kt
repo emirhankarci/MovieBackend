@@ -99,9 +99,9 @@ class WatchedEpisodeController(
         val user = getCurrentUser() ?: return unauthorized()
         logger.info("GET /api/tv/watched/{}/progress", seriesId)
 
-        // Convert list to map where index+1 is season number (season 1 = index 0)
-        val parsedCounts = seasonEpisodeCounts?.mapIndexed { index, count -> (index + 1) to count }?.toMap() ?: emptyMap()
-        val response = watchedEpisodeService.getWatchProgress(user, seriesId, parsedCounts)
+        // We ignore user provided counts now as they can be inaccurate
+        // val parsedCounts = seasonEpisodeCounts?.mapIndexed { index, count -> (index + 1) to count }?.toMap() ?: emptyMap()
+        val response = watchedEpisodeService.getWatchProgress(user, seriesId)
         return ResponseEntity.ok(response as Any)
     }
 
