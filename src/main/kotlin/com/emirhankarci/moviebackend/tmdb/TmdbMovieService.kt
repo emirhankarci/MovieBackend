@@ -116,6 +116,99 @@ class TmdbMovieService(
         return response.copy(recommendations = response.recommendations.take(limit))
     }
 
+    /**
+     * Vizyondaki filmleri getirir (cache destekli)
+     */
+    fun getNowPlayingMovies(page: Int = 1): PopularMoviesResponse {
+        val cacheKey = CacheKeys.Movie.nowPlaying(page)
+
+        // Cache'den kontrol et
+        cacheService.get(cacheKey, PopularMoviesResponse::class.java)?.let {
+            logger.info("Now playing movies cache HIT for page: {}", page)
+            return it
+        }
+
+        // TMDB'den getir
+        logger.info("Now playing movies cache MISS for page: {}, fetching from TMDB", page)
+        val tmdbResponse = tmdbApiClient.getNowPlayingMovies(page)
+        val response = mapToPopularMoviesResponse(tmdbResponse, page)
+
+        // Cache'e yaz (1 saat)
+        cacheService.set(cacheKey, response, CacheKeys.TTL.SHORT)
+
+        return response
+    }
+
+    /**
+     * Gelecek filmleri getirir (cache destekli)
+     */
+    fun getUpcomingMovies(page: Int = 1): PopularMoviesResponse {
+        val cacheKey = CacheKeys.Movie.upcoming(page)
+
+        // Cache'den kontrol et
+        cacheService.get(cacheKey, PopularMoviesResponse::class.java)?.let {
+            logger.info("Upcoming movies cache HIT for page: {}", page)
+            return it
+        }
+
+        // TMDB'den getir
+        logger.info("Upcoming movies cache MISS for page: {}, fetching from TMDB", page)
+        val tmdbResponse = tmdbApiClient.getUpcomingMovies(page)
+        val response = mapToPopularMoviesResponse(tmdbResponse, page)
+
+        // Cache'e yaz (1 saat)
+        cacheService.set(cacheKey, response, CacheKeys.TTL.SHORT)
+
+        return response
+    }
+
+    /**
+     * En yüksek puanlı filmleri getirir (cache destekli)
+     */
+    fun getTopRatedMovies(page: Int = 1): PopularMoviesResponse {
+        val cacheKey = CacheKeys.Movie.topRated(page)
+
+        // Cache'den kontrol et
+        cacheService.get(cacheKey, PopularMoviesResponse::class.java)?.let {
+            logger.info("Top rated movies cache HIT for page: {}", page)
+            return it
+        }
+
+        // TMDB'den getir
+        logger.info("Top rated movies cache MISS for page: {}, fetching from TMDB", page)
+        val tmdbResponse = tmdbApiClient.getTopRatedMovies(page)
+        val response = mapToPopularMoviesResponse(tmdbResponse, page)
+
+        // Cache'e yaz (24 saat - çok sık değişmez)
+        cacheService.set(cacheKey, response, CacheKeys.TTL.LONG)
+
+        return response
+    }
+
+    /**
+     * Film yaş sınırını/sertifikasını getirir (cache destekli)
+     * Öncelik TR, yoksa US
+     */
+    fun getMovieCertification(movieId: Long): CertificationResponse {
+        val cacheKey = CacheKeys.Movie.certification(movieId)
+
+        // Cache'den kontrol et
+        cacheService.get(cacheKey, CertificationResponse::class.java)?.let {
+            logger.info("Movie certification cache HIT for movieId: {}", movieId)
+            return it
+        }
+
+        // TMDB'den getir
+        logger.info("Movie certification cache MISS for movieId: {}, fetching from TMDB", movieId)
+        val tmdbResponse = tmdbApiClient.getReleaseDates(movieId)
+        val response = mapToCertificationResponse(movieId, tmdbResponse)
+
+        // Cache'e yaz (24 saat)
+        cacheService.set(cacheKey, response, CacheKeys.TTL.LONG)
+
+        return response
+    }
+
     // ==================== Mapping Functions ====================
 
     private fun mapToPopularMoviesResponse(tmdb: TmdbPopularResponse, page: Int): PopularMoviesResponse {
@@ -180,5 +273,26 @@ class TmdbMovieService(
                 )
             }
         )
+    }
+
+    private fun mapToCertificationResponse(movieId: Long, tmdb: TmdbReleaseDatesResponse): CertificationResponse {
+        // Önce TR'yi ara
+        val trDates = tmdb.results.find { it.iso_3166_1 == "TR" }?.release_dates
+        val trCert = trDates?.firstOrNull { !it.certification.isNullOrBlank() }?.certification
+
+        if (!trCert.isNullOrBlank()) {
+            return CertificationResponse(movieId, trCert, "TR")
+        }
+
+        // TR yoksa US'i ara
+        val usDates = tmdb.results.find { it.iso_3166_1 == "US" }?.release_dates
+        val usCert = usDates?.firstOrNull { !it.certification.isNullOrBlank() }?.certification
+
+        if (!usCert.isNullOrBlank()) {
+            return CertificationResponse(movieId, usCert, "US")
+        }
+
+        // Hiçbiri yoksa
+        return CertificationResponse(movieId, "NR", "NR")
     }
 }

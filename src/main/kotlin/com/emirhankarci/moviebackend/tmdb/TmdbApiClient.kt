@@ -44,6 +44,39 @@ class TmdbApiClient(
     }
 
     /**
+     * Vizyondaki filmleri getirir
+     */
+    fun getNowPlayingMovies(page: Int = 1, language: String = "tr-TR"): TmdbPopularResponse {
+        val url = "$BASE_URL/movie/now_playing?api_key=$apiKey&language=$language&page=$page"
+        logger.debug("Fetching now playing movies: page={}, language={}", page, language)
+
+        return executeRequest(url, TmdbPopularResponse::class.java)
+            ?: throw TmdbApiException("Failed to fetch now playing movies", HttpStatus.SERVICE_UNAVAILABLE.value())
+    }
+
+    /**
+     * Gelecek filmleri getirir
+     */
+    fun getUpcomingMovies(page: Int = 1, language: String = "tr-TR"): TmdbPopularResponse {
+        val url = "$BASE_URL/movie/upcoming?api_key=$apiKey&language=$language&page=$page"
+        logger.debug("Fetching upcoming movies: page={}, language={}", page, language)
+
+        return executeRequest(url, TmdbPopularResponse::class.java)
+            ?: throw TmdbApiException("Failed to fetch upcoming movies", HttpStatus.SERVICE_UNAVAILABLE.value())
+    }
+
+    /**
+     * En yüksek puanlı filmleri getirir
+     */
+    fun getTopRatedMovies(page: Int = 1, language: String = "tr-TR"): TmdbPopularResponse {
+        val url = "$BASE_URL/movie/top_rated?api_key=$apiKey&language=$language&page=$page"
+        logger.debug("Fetching top rated movies: page={}, language={}", page, language)
+
+        return executeRequest(url, TmdbPopularResponse::class.java)
+            ?: throw TmdbApiException("Failed to fetch top rated movies", HttpStatus.SERVICE_UNAVAILABLE.value())
+    }
+
+    /**
      * Film detaylarını getirir
      */
     fun getMovieDetail(movieId: Long, language: String = "tr-TR"): TmdbMovieDetailResponse {
@@ -74,6 +107,17 @@ class TmdbApiClient(
         
         return executeRequest(url, TmdbRecommendationsResponse::class.java)
             ?: throw TmdbApiException("Recommendations not found for movie: $movieId", HttpStatus.NOT_FOUND.value())
+    }
+
+    /**
+     * Film yaş sınırlarını/sertifikalarını getirir
+     */
+    fun getReleaseDates(movieId: Long): TmdbReleaseDatesResponse {
+        val url = "$BASE_URL/movie/$movieId/release_dates?api_key=$apiKey"
+        logger.debug("Fetching movie release dates: movieId={}", movieId)
+
+        return executeRequest(url, TmdbReleaseDatesResponse::class.java)
+            ?: throw TmdbApiException("Release dates not found for movie: $movieId", HttpStatus.NOT_FOUND.value())
     }
 
     // ==================== Actor Methods ====================

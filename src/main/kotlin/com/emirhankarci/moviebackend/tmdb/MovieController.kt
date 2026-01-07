@@ -39,6 +39,60 @@ class MovieController(
     }
 
     /**
+     * GET /api/movies/now-playing
+     * Vizyondaki filmleri getirir
+     */
+    @GetMapping("/now-playing")
+    fun getNowPlayingMovies(
+        @RequestParam(defaultValue = "1") page: Int
+    ): ResponseEntity<PopularMoviesResponse> {
+        logger.info("GET /api/movies/now-playing - page: {}", page)
+
+        if (page < 1) {
+            throw TmdbApiException("Page must be greater than 0", 400)
+        }
+
+        val response = tmdbMovieService.getNowPlayingMovies(page)
+        return ResponseEntity.ok(response)
+    }
+
+    /**
+     * GET /api/movies/upcoming
+     * Gelecek filmleri getirir
+     */
+    @GetMapping("/upcoming")
+    fun getUpcomingMovies(
+        @RequestParam(defaultValue = "1") page: Int
+    ): ResponseEntity<PopularMoviesResponse> {
+        logger.info("GET /api/movies/upcoming - page: {}", page)
+
+        if (page < 1) {
+            throw TmdbApiException("Page must be greater than 0", 400)
+        }
+
+        val response = tmdbMovieService.getUpcomingMovies(page)
+        return ResponseEntity.ok(response)
+    }
+
+    /**
+     * GET /api/movies/top-rated
+     * En yüksek puanlı filmleri getirir
+     */
+    @GetMapping("/top-rated")
+    fun getTopRatedMovies(
+        @RequestParam(defaultValue = "1") page: Int
+    ): ResponseEntity<PopularMoviesResponse> {
+        logger.info("GET /api/movies/top-rated - page: {}", page)
+
+        if (page < 1) {
+            throw TmdbApiException("Page must be greater than 0", 400)
+        }
+
+        val response = tmdbMovieService.getTopRatedMovies(page)
+        return ResponseEntity.ok(response)
+    }
+
+    /**
      * GET /api/movies/{movieId}
      * Film detaylarını getirir
      * 
@@ -55,6 +109,24 @@ class MovieController(
         }
         
         val response = tmdbMovieService.getMovieDetail(movieId)
+        return ResponseEntity.ok(response)
+    }
+
+    /**
+     * GET /api/movies/{movieId}/certification
+     * Film yaş sınırını/sertifikasını getirir
+     */
+    @GetMapping("/{movieId}/certification")
+    fun getMovieCertification(
+        @PathVariable movieId: Long
+    ): ResponseEntity<CertificationResponse> {
+        logger.info("GET /api/movies/{}/certification", movieId)
+
+        if (movieId < 1) {
+            throw TmdbApiException("Invalid movie ID", 400)
+        }
+
+        val response = tmdbMovieService.getMovieCertification(movieId)
         return ResponseEntity.ok(response)
     }
 

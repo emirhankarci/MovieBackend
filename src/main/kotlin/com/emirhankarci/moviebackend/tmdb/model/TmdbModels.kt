@@ -116,3 +116,23 @@ data class TmdbActorMovieCredit(
     val vote_average: Double,
     val vote_count: Int?
 )
+
+// ==================== Release Dates ====================
+
+data class TmdbReleaseDatesResponse(
+    val id: Long,
+    val results: List<TmdbReleaseDateResult>
+)
+
+data class TmdbReleaseDateResult(
+    val iso_3166_1: String,
+    val release_dates: List<TmdbReleaseDate>
+)
+
+data class TmdbReleaseDate(
+    val certification: String?,
+    val iso_639_1: String?,
+    val note: String?,
+    val release_date: String?,
+    val type: Int?
+)

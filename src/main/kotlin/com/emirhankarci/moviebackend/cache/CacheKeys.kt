@@ -40,6 +40,18 @@ object CacheKeys {
         
         /** movies:popular:page:{page} - Popular movies list */
         fun popular(page: Int = 1): String = "${PREFIX}s:popular:page:$page"
+
+        /** movies:now_playing:page:{page} - Now playing movies list */
+        fun nowPlaying(page: Int = 1): String = "${PREFIX}s:now_playing:page:$page"
+
+        /** movies:upcoming:page:{page} - Upcoming movies list */
+        fun upcoming(page: Int = 1): String = "${PREFIX}s:upcoming:page:$page"
+
+        /** movies:top_rated:page:{page} - Top rated movies list */
+        fun topRated(page: Int = 1): String = "${PREFIX}s:top_rated:page:$page"
+
+        /** movie:{movieId}:certification - Movie certification/release dates */
+        fun certification(movieId: Long): String = "$PREFIX:$movieId:certification"
         
         /** Pattern for all movie keys */
         const val PATTERN_ALL = "$PREFIX:*"
