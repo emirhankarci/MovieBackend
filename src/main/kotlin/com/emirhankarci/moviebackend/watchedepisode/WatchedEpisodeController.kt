@@ -17,6 +17,18 @@ class WatchedEpisodeController(
         private val logger = LoggerFactory.getLogger(WatchedEpisodeController::class.java)
     }
 
+    @GetMapping
+    fun getWatchedSeries(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int
+    ): ResponseEntity<Any> {
+        val user = getCurrentUser() ?: return unauthorized()
+        logger.info("GET /api/tv/watched - page: {}", page)
+
+        val response = watchedEpisodeService.getWatchedSeries(user, page, size)
+        return ResponseEntity.ok(response)
+    }
+
     @PostMapping("/episode")
     fun markEpisodeWatched(@RequestBody request: MarkEpisodeWatchedRequest): ResponseEntity<Any> {
         val user = getCurrentUser() ?: return unauthorized()

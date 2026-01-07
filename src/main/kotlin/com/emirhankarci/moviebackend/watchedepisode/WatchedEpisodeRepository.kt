@@ -27,4 +27,7 @@ interface WatchedEpisodeRepository : JpaRepository<WatchedEpisode, Long> {
     
     @Query("SELECT COUNT(w) FROM WatchedEpisode w WHERE w.user.id = :userId AND w.seriesId = :seriesId")
     fun countByUserIdAndSeriesId(userId: Long, seriesId: Long): Int
+
+    @Query("SELECT new com.emirhankarci.moviebackend.watchedepisode.WatchedSeriesSummary(w.seriesId, w.seriesName, MAX(w.watchedAt)) FROM WatchedEpisode w WHERE w.user.id = :userId GROUP BY w.seriesId, w.seriesName ORDER BY MAX(w.watchedAt) DESC")
+    fun findWatchedSeriesByUserId(userId: Long, pageable: org.springframework.data.domain.Pageable): org.springframework.data.domain.Page<WatchedSeriesSummary>
 }

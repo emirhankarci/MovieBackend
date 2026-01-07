@@ -74,6 +74,18 @@ data class EpisodeWatchStatusResponse(
     val isWatched: Boolean
 )
 
+data class WatchedSeriesSummary(
+    val seriesId: Long,
+    val seriesName: String,
+    val lastWatchedAt: LocalDateTime
+)
+
+data class WatchedSeriesDto(
+    val seriesId: Long,
+    val seriesName: String,
+    val lastWatchedAt: LocalDateTime
+)
+
 // Result wrapper
 sealed class WatchedEpisodeResult<out T> {
     data class Success<T>(val data: T) : WatchedEpisodeResult<T>()

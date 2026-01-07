@@ -143,6 +143,20 @@ class WatchedEpisodeService(
         )
     }
 
+
+    fun getWatchedSeries(user: User, page: Int, size: Int): com.emirhankarci.moviebackend.common.PageResponse<WatchedSeriesDto> {
+        val pageable = org.springframework.data.domain.PageRequest.of(page, size)
+        val watchedSeriesPage = watchedEpisodeRepository.findWatchedSeriesByUserId(user.id!!, pageable)
+        
+        return com.emirhankarci.moviebackend.common.PageResponse.from(watchedSeriesPage) {
+            WatchedSeriesDto(
+                seriesId = it.seriesId,
+                seriesName = it.seriesName,
+                lastWatchedAt = it.lastWatchedAt
+            )
+        }
+    }
+
     fun checkEpisodeStatus(user: User, seriesId: Long, seasonNumber: Int, episodeNumber: Int): EpisodeWatchStatusResponse {
         val isWatched = watchedEpisodeRepository.existsByUserIdAndSeriesIdAndSeasonNumberAndEpisodeNumber(
             user.id!!, seriesId, seasonNumber, episodeNumber
