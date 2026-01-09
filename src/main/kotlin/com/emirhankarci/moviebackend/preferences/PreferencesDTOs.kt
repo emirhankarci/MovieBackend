@@ -20,7 +20,10 @@ data class SavePreferencesRequest(
     
     @field:NotEmpty(message = "At least one favorite movie must be selected")
     @field:Size(min = 3, message = "At least 3 favorite movies must be selected")
-    val favoriteMovieIds: List<@Positive(message = "Movie ID must be greater than 0") Long>
+    val favoriteMovieIds: List<@Positive(message = "Movie ID must be greater than 0") Long>,
+    
+    @field:Size(min = 3, message = "At least 3 favorite TV series must be selected")
+    val favoriteTvSeriesIds: List<@Positive(message = "TV Series ID must be greater than 0") Long>? = null
 ) {
     // Enum validation stays in service layer (would need custom validators)
     fun validateEnums(): PreferencesValidationResult {
@@ -67,6 +70,7 @@ data class PreferencesResponse(
     val preferredEra: String,
     val moods: List<String>,
     val favoriteMovieIds: List<Long>,
+    val favoriteTvSeriesIds: List<Long>? = null,
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     val createdAt: LocalDateTime,
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
@@ -78,6 +82,12 @@ data class PreferencesStatusResponse(
 )
 
 data class CuratedFilm(
+    val tmdbId: Long,
+    val title: String,
+    val posterPath: String
+)
+
+data class CuratedTvSeries(
     val tmdbId: Long,
     val title: String,
     val posterPath: String

@@ -27,6 +27,9 @@ data class UserPreferences(
     @Column(name = "favorite_movie_ids", nullable = false)
     val favoriteMovieIds: String,  // Comma-separated TMDB IDs: "157336,155,680"
 
+    @Column(name = "favorite_tv_series_ids")
+    val favoriteTvSeriesIds: String? = null,  // Comma-separated TMDB IDs: "1396,1399,66732"
+
     @Column(name = "created_at", updatable = false)
     val createdAt: LocalDateTime = LocalDateTime.now(),
 

@@ -32,6 +32,25 @@ class PreferencesService(
             CuratedFilm(324857, "Spider-Man: Into the Spider-Verse", "/iiZZdoQBEYBv6id8su7ImL0oCbD.jpg"),
             CuratedFilm(278, "The Shawshank Redemption", "/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg")
         )
+
+        // Curated TV series for profile building
+        val CURATED_TV_SERIES = listOf(
+            CuratedTvSeries(1396, "Breaking Bad", "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg"),
+            CuratedTvSeries(1399, "Game of Thrones", "/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg"),
+            CuratedTvSeries(60735, "The Flash", "/lJA2RCMfsWoskqlQhXPSLFQGXEJ.jpg"),
+            CuratedTvSeries(66732, "Stranger Things", "/49WJfeN0moxb9IPfGn8AIqMGskD.jpg"),
+            CuratedTvSeries(71446, "Money Heist", "/reEMJA1uzscCbkpeRJeTT2bjqUp.jpg"),
+            CuratedTvSeries(94997, "House of the Dragon", "/z2yahl2uefxDCl0nogcRBstwruJ.jpg"),
+            CuratedTvSeries(84958, "Loki", "/voHUmluYmKyleFkTu3lOXQG702u.jpg"),
+            CuratedTvSeries(76479, "The Boys", "/stTEycfG9928HYGEISBFaG1ngjM.jpg"),
+            CuratedTvSeries(63174, "Lucifer", "/4EYPN5mVIhKLfxGruy7Dy41dTVn.jpg"),
+            CuratedTvSeries(1402, "The Walking Dead", "/xf9wuDcqlUPWABZNeDKPbZUjWx0.jpg"),
+            CuratedTvSeries(60574, "Peaky Blinders", "/vUUqzWa2LnHvVHqbzWcxPBF5Bmi.jpg"),
+            CuratedTvSeries(82856, "The Mandalorian", "/sWgBv7LV2PRoQgkxwlibdGXKz1S.jpg"),
+            CuratedTvSeries(93405, "Squid Game", "/dDlEmu3EZ0Pgg93K2SVNLCjCSvE.jpg"),
+            CuratedTvSeries(100088, "The Last of Us", "/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg"),
+            CuratedTvSeries(1418, "The Big Bang Theory", "/ooBGRQBdbGzBxAVfExiO8r7kloA.jpg")
+        )
     }
 
     @Transactional
@@ -58,6 +77,7 @@ class PreferencesService(
                 preferredEra = request.preferredEra.uppercase(),
                 moods = request.moods.joinToString(",") { it.uppercase() },
                 favoriteMovieIds = request.favoriteMovieIds.joinToString(","),
+                favoriteTvSeriesIds = request.favoriteTvSeriesIds?.joinToString(","),
                 updatedAt = now
             )
             userPreferencesRepository.save(updated)
@@ -71,6 +91,7 @@ class PreferencesService(
                 preferredEra = request.preferredEra.uppercase(),
                 moods = request.moods.joinToString(",") { it.uppercase() },
                 favoriteMovieIds = request.favoriteMovieIds.joinToString(","),
+                favoriteTvSeriesIds = request.favoriteTvSeriesIds?.joinToString(","),
                 createdAt = now,
                 updatedAt = now
             )
@@ -111,12 +132,17 @@ class PreferencesService(
         return CURATED_FILMS
     }
 
+    fun getCuratedTvSeries(): List<CuratedTvSeries> {
+        return CURATED_TV_SERIES
+    }
+
     private fun UserPreferences.toResponse(): PreferencesResponse {
         return PreferencesResponse(
             genres = genres.split(",").filter { it.isNotBlank() },
             preferredEra = preferredEra,
             moods = moods.split(",").filter { it.isNotBlank() },
             favoriteMovieIds = favoriteMovieIds.split(",").filter { it.isNotBlank() }.map { it.toLong() },
+            favoriteTvSeriesIds = favoriteTvSeriesIds?.split(",")?.filter { it.isNotBlank() }?.map { it.toLong() },
             createdAt = createdAt,
             updatedAt = updatedAt
         )

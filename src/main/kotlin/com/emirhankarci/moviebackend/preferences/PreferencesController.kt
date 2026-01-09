@@ -54,4 +54,9 @@ class PreferencesController(
     fun getCuratedFilms(): ResponseEntity<List<CuratedFilm>> {
         return ResponseEntity.ok(preferencesService.getCuratedFilms())
     }
+
+    @GetMapping("/curated-tv-series")
+    fun getCuratedTvSeries(): ResponseEntity<List<CuratedTvSeries>> {
+        return ResponseEntity.ok(preferencesService.getCuratedTvSeries())
+    }
 }
