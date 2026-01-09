@@ -44,8 +44,8 @@ object CacheKeys {
         /** movies:now_playing:page:{page} - Now playing movies list */
         fun nowPlaying(page: Int = 1): String = "${PREFIX}s:now_playing:page:$page"
 
-        /** movies:upcoming:page:{page} - Upcoming movies list */
-        fun upcoming(page: Int = 1): String = "${PREFIX}s:upcoming:page:$page"
+        /** movies:upcoming:page:{page} - Upcoming movies list (v2 with quality filter) */
+        fun upcoming(page: Int = 1): String = "${PREFIX}s:upcoming:v2:page:$page"
 
         /** movies:top_rated:page:{page} - Top rated movies list */
         fun topRated(page: Int = 1): String = "${PREFIX}s:top_rated:page:$page"

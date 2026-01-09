@@ -57,15 +57,51 @@ class TmdbApiClient(
     /**
      * Gelecek filmleri getirir (Discover API ile)
      * @param daysAhead Bugünden kaç gün sonrasına kadar bakılacak (varsayılan 90 gün = ~3 ay)
+     * @param filterParams Kalite filtreleme parametreleri (opsiyonel)
      */
-    fun getUpcomingMovies(page: Int = 1, language: String = "tr-TR", daysAhead: Int = 90): TmdbPopularResponse {
+    fun getUpcomingMovies(
+        page: Int = 1,
+        language: String = "tr-TR",
+        daysAhead: Int = 90,
+        filterParams: UpcomingFilterParams? = null
+    ): TmdbPopularResponse {
         val today = java.time.LocalDate.now()
         val endDate = today.plusDays(daysAhead.toLong())
         
-        val url = "$BASE_URL/discover/movie?api_key=$apiKey&language=$language&page=$page" +
+        val baseUrl = "$BASE_URL/discover/movie?api_key=$apiKey&language=$language&page=$page" +
                 "&primary_release_date.gte=$today&primary_release_date.lte=$endDate" +
                 "&sort_by=primary_release_date.asc"
-        logger.debug("Fetching upcoming movies via Discover: page={}, language={}, dateRange={} to {}", page, language, today, endDate)
+        
+        // Filtre parametrelerini ekle
+        val url = if (filterParams != null) {
+            val filterParts = mutableListOf<String>()
+            
+            // Minimum oy sayısı
+            if (filterParams.minVoteCount > 0) {
+                filterParts.add("vote_count.gte=${filterParams.minVoteCount}")
+            }
+            
+            // Minimum süre
+            if (filterParams.minRuntime > 0) {
+                filterParts.add("with_runtime.gte=${filterParams.minRuntime}")
+            }
+            
+            // Hariç tutulacak türler
+            if (filterParams.excludedGenreIds.isNotEmpty()) {
+                filterParts.add("without_genres=${filterParams.excludedGenreIds.joinToString(",")}")
+            }
+            
+            if (filterParts.isNotEmpty()) {
+                "$baseUrl&${filterParts.joinToString("&")}"
+            } else {
+                baseUrl
+            }
+        } else {
+            baseUrl
+        }
+        
+        logger.debug("Fetching upcoming movies via Discover: page={}, language={}, dateRange={} to {}, hasFilters={}", 
+            page, language, today, endDate, filterParams != null)
 
         return executeRequest(url, TmdbPopularResponse::class.java)
             ?: throw TmdbApiException("Failed to fetch upcoming movies", HttpStatus.SERVICE_UNAVAILABLE.value())

@@ -14,7 +14,8 @@ import org.springframework.stereotype.Service
 @Service
 class TmdbMovieService(
     private val tmdbApiClient: TmdbApiClient,
-    private val cacheService: CacheService
+    private val cacheService: CacheService,
+    private val upcomingQualityFilter: UpcomingMoviesQualityFilter
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(TmdbMovieService::class.java)
@@ -140,8 +141,9 @@ class TmdbMovieService(
     }
 
     /**
-     * Gelecek filmleri getirir (cache destekli)
-     * Discover API kullanarak bugünden 3 ay sonrasına kadar olan filmleri döndürür
+     * Gelecek filmleri getirir (cache destekli, kalite filtrelemeli)
+     * Discover API kullanarak bugünden 3 ay sonrasına kadar olan filmleri döndürür.
+     * API seviyesinde ve uygulama seviyesinde kalite filtrelemesi uygular.
      */
     fun getUpcomingMovies(page: Int = 1): PopularMoviesResponse {
         val cacheKey = CacheKeys.Movie.upcoming(page)
@@ -152,10 +154,26 @@ class TmdbMovieService(
             return it
         }
 
-        // TMDB'den getir (Discover API ile 90 gün ileriye bakar)
-        logger.info("Upcoming movies cache MISS for page: {}, fetching from TMDB", page)
-        val tmdbResponse = tmdbApiClient.getUpcomingMovies(page)
-        val response = mapToPopularMoviesResponse(tmdbResponse, page)
+        // API filtre parametrelerini al
+        val filterParams = upcomingQualityFilter.getApiFilterParams()
+        
+        // TMDB'den getir (Discover API ile 90 gün ileriye bakar + API filtreleri)
+        logger.info("Upcoming movies cache MISS for page: {}, fetching from TMDB with quality filters", page)
+        val tmdbResponse = tmdbApiClient.getUpcomingMovies(page, filterParams = filterParams)
+        
+        // Uygulama seviyesi filtreleme (poster ve popülerlik kontrolü)
+        val filteredResults = upcomingQualityFilter.filter(tmdbResponse.results)
+        
+        if (filteredResults.isEmpty() && tmdbResponse.results.isNotEmpty()) {
+            logger.warn("All {} upcoming movies were filtered out for page: {}", tmdbResponse.results.size, page)
+        } else if (filteredResults.size < tmdbResponse.results.size) {
+            logger.debug("Filtered {} out of {} upcoming movies for page: {}", 
+                tmdbResponse.results.size - filteredResults.size, tmdbResponse.results.size, page)
+        }
+        
+        // Filtrelenmiş response oluştur
+        val filteredTmdbResponse = tmdbResponse.copy(results = filteredResults)
+        val response = mapToPopularMoviesResponse(filteredTmdbResponse, page)
 
         // Cache'e yaz (1 saat)
         cacheService.set(cacheKey, response, CacheKeys.TTL.SHORT)
