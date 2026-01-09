@@ -141,6 +141,7 @@ class TmdbMovieService(
 
     /**
      * Gelecek filmleri getirir (cache destekli)
+     * Sadece bugünden sonra çıkacak filmleri döndürür
      */
     fun getUpcomingMovies(page: Int = 1): PopularMoviesResponse {
         val cacheKey = CacheKeys.Movie.upcoming(page)
@@ -156,10 +157,29 @@ class TmdbMovieService(
         val tmdbResponse = tmdbApiClient.getUpcomingMovies(page)
         val response = mapToPopularMoviesResponse(tmdbResponse, page)
 
-        // Cache'e yaz (1 saat)
-        cacheService.set(cacheKey, response, CacheKeys.TTL.SHORT)
+        // Sadece gelecekteki filmleri filtrele (release_date > bugün)
+        val today = java.time.LocalDate.now()
+        val filteredMovies = response.movies.filter { movie ->
+            movie.releaseDate?.let { dateStr ->
+                try {
+                    val releaseDate = java.time.LocalDate.parse(dateStr)
+                    releaseDate.isAfter(today) || releaseDate.isEqual(today)
+                } catch (e: Exception) {
+                    logger.warn("Invalid release date format: {} for movie: {}", dateStr, movie.title)
+                    false
+                }
+            } ?: false
+        }
 
-        return response
+        val filteredResponse = response.copy(
+            movies = filteredMovies,
+            totalResults = filteredMovies.size
+        )
+
+        // Cache'e yaz (1 saat)
+        cacheService.set(cacheKey, filteredResponse, CacheKeys.TTL.SHORT)
+
+        return filteredResponse
     }
 
     /**
