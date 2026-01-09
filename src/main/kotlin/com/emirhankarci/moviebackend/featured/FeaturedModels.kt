@@ -54,3 +54,36 @@ data class TmdbMovieDetails(
 data class FeaturedMoviesCacheData(
     val movies: List<FeaturedMovie> = emptyList()
 )
+
+// ==================== TV Series Models ====================
+
+/**
+ * TMDB Trending TV API response
+ */
+data class TmdbTrendingTvResponse(
+    val results: List<TmdbTrendingTvSeries>?,
+    val page: Int?,
+    val total_pages: Int?
+)
+
+/**
+ * TMDB Trending TV series item
+ */
+data class TmdbTrendingTvSeries(
+    val id: Long,
+    val name: String,
+    val backdrop_path: String?,
+    val vote_average: Double,
+    val vote_count: Int,
+    val first_air_date: String?,
+    val genre_ids: List<Int>?,
+    val overview: String?
+)
+
+/**
+ * TMDB TV series details response (for tagline)
+ */
+data class TmdbTvSeriesDetails(
+    val id: Long,
+    val tagline: String?
+)

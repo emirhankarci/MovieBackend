@@ -35,3 +35,40 @@ data class FeaturedErrorResponse(
     val error: String,
     val message: String
 )
+
+// ==================== TV Series DTOs ====================
+
+/**
+ * Featured TV series data for carousel display
+ */
+data class FeaturedTvSeries(
+    val id: Long = 0,
+    val name: String = "",
+    val backdropPath: String = "",
+    val tagline: String = "",
+    val rating: Double = 0.0,
+    val firstAirYear: Int = 0,
+    val genres: List<String> = emptyList()
+)
+
+/**
+ * Response wrapper for featured TV series endpoint
+ */
+data class FeaturedTvSeriesResponse(
+    val tvSeries: List<FeaturedTvSeries> = emptyList()
+)
+
+/**
+ * Result sealed class for TV series service layer
+ */
+sealed class FeaturedTvSeriesResult {
+    data class Success(val tvSeries: List<FeaturedTvSeries>) : FeaturedTvSeriesResult()
+    data class Error(val code: String, val message: String) : FeaturedTvSeriesResult()
+}
+
+/**
+ * Wrapper for caching featured TV series list
+ */
+data class FeaturedTvSeriesCacheData(
+    val tvSeries: List<FeaturedTvSeries> = emptyList()
+)
