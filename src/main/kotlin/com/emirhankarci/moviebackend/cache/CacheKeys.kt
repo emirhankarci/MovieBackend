@@ -113,6 +113,9 @@ object CacheKeys {
         /** featured:{timeWindow} - Trending movies by time window (day/week) */
         fun trending(timeWindow: String): String = "$PREFIX:$timeWindow"
         
+        /** featured:personalized:{userId}:{date} - Personalized featured movies per user per day */
+        fun personalized(userId: Long, date: String): String = "$PREFIX:personalized:$userId:$date"
+        
         /** Pattern for all featured keys */
         const val PATTERN_ALL = "$PREFIX:*"
     }
