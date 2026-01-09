@@ -55,11 +55,17 @@ class TmdbApiClient(
     }
 
     /**
-     * Gelecek filmleri getirir
+     * Gelecek filmleri getirir (Discover API ile)
+     * @param daysAhead Bugünden kaç gün sonrasına kadar bakılacak (varsayılan 90 gün = ~3 ay)
      */
-    fun getUpcomingMovies(page: Int = 1, language: String = "tr-TR"): TmdbPopularResponse {
-        val url = "$BASE_URL/movie/upcoming?api_key=$apiKey&language=$language&page=$page"
-        logger.debug("Fetching upcoming movies: page={}, language={}", page, language)
+    fun getUpcomingMovies(page: Int = 1, language: String = "tr-TR", daysAhead: Int = 90): TmdbPopularResponse {
+        val today = java.time.LocalDate.now()
+        val endDate = today.plusDays(daysAhead.toLong())
+        
+        val url = "$BASE_URL/discover/movie?api_key=$apiKey&language=$language&page=$page" +
+                "&primary_release_date.gte=$today&primary_release_date.lte=$endDate" +
+                "&sort_by=primary_release_date.asc"
+        logger.debug("Fetching upcoming movies via Discover: page={}, language={}, dateRange={} to {}", page, language, today, endDate)
 
         return executeRequest(url, TmdbPopularResponse::class.java)
             ?: throw TmdbApiException("Failed to fetch upcoming movies", HttpStatus.SERVICE_UNAVAILABLE.value())
