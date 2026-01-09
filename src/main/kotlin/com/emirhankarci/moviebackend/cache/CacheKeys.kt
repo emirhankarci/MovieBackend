@@ -128,7 +128,28 @@ object CacheKeys {
         /** featured:tv:{timeWindow} - Trending TV series by time window (day/week) */
         fun trending(timeWindow: String): String = "$PREFIX:$timeWindow"
         
+        /** featured:tv:personalized:{userId}:{date} - Personalized featured TV series per user per day */
+        fun personalized(userId: Long, date: String): String = "$PREFIX:personalized:$userId:$date"
+        
         /** Pattern for all featured TV keys */
+        const val PATTERN_ALL = "$PREFIX:*"
+    }
+
+    // ==================== TV Suggestion Keys ====================
+    
+    object TvSuggestion {
+        private const val PREFIX = "tv:suggestion"
+        
+        /** tv:suggestion:daily:{userId}:{date} - Daily TV suggestions per user per day */
+        fun daily(userId: Long, date: String): String = "$PREFIX:daily:$userId:$date"
+        
+        /** tv:suggestion:search:{query} - TV series search results */
+        fun search(query: String): String {
+            val normalized = query.lowercase().trim().replace(" ", "_")
+            return "$PREFIX:search:$normalized"
+        }
+        
+        /** Pattern for all TV suggestion keys */
         const val PATTERN_ALL = "$PREFIX:*"
     }
 

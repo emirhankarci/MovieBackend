@@ -1,5 +1,7 @@
 package com.emirhankarci.moviebackend.featured
 
+import com.emirhankarci.moviebackend.tvsuggestion.PersonalizedFeaturedTvResult
+import com.emirhankarci.moviebackend.tvsuggestion.PersonalizedFeaturedTvService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
@@ -9,7 +11,8 @@ import org.springframework.web.bind.annotation.*
 class FeaturedController(
     private val featuredMoviesService: FeaturedMoviesService,
     private val featuredTvSeriesService: FeaturedTvSeriesService,
-    private val personalizedFeaturedService: PersonalizedFeaturedService
+    private val personalizedFeaturedService: PersonalizedFeaturedService,
+    private val personalizedFeaturedTvService: PersonalizedFeaturedTvService
 ) {
 
     @GetMapping("/movies")
@@ -96,6 +99,45 @@ class FeaturedController(
                     ResponseEntity.ok(result.data)
                 }
                 is PersonalizedFeaturedResult.Error -> {
+                    val status = when (result.code) {
+                        "USER_NOT_FOUND" -> 404
+                        "TRENDING_ERROR" -> 503
+                        else -> 500
+                    }
+                    ResponseEntity.status(status).body(
+                        FeaturedErrorResponse(
+                            error = result.code,
+                            message = result.message
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            ResponseEntity.status(500).body(
+                FeaturedErrorResponse(
+                    error = "INTERNAL_ERROR",
+                    message = "Beklenmeyen hata: ${e.message}"
+                )
+            )
+        }
+    }
+
+    @GetMapping("/tv-series/personalized")
+    fun getPersonalizedFeaturedTvSeries(): ResponseEntity<Any> {
+        val username = SecurityContextHolder.getContext().authentication?.name
+            ?: return ResponseEntity.status(401).body(
+                FeaturedErrorResponse(
+                    error = "UNAUTHORIZED",
+                    message = "Bu endpoint için giriş yapmanız gerekiyor"
+                )
+            )
+
+        return try {
+            when (val result = personalizedFeaturedTvService.getPersonalizedFeaturedTvSeries(username)) {
+                is PersonalizedFeaturedTvResult.Success -> {
+                    ResponseEntity.ok(result.data)
+                }
+                is PersonalizedFeaturedTvResult.Error -> {
                     val status = when (result.code) {
                         "USER_NOT_FOUND" -> 404
                         "TRENDING_ERROR" -> 503
