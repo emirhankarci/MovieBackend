@@ -117,6 +117,18 @@ object CacheKeys {
         const val PATTERN_ALL = "$PREFIX:*"
     }
 
+    // ==================== Featured TV Keys ====================
+    
+    object FeaturedTv {
+        private const val PREFIX = "featured:tv"
+        
+        /** featured:tv:{timeWindow} - Trending TV series by time window (day/week) */
+        fun trending(timeWindow: String): String = "$PREFIX:$timeWindow"
+        
+        /** Pattern for all featured TV keys */
+        const val PATTERN_ALL = "$PREFIX:*"
+    }
+
     // ==================== Chat Keys ====================
     
     object Chat {
