@@ -6,7 +6,8 @@ import org.springframework.web.bind.annotation.*
 @RestController
 @RequestMapping("/api/featured")
 class FeaturedController(
-    private val featuredMoviesService: FeaturedMoviesService
+    private val featuredMoviesService: FeaturedMoviesService,
+    private val featuredTvSeriesService: FeaturedTvSeriesService
 ) {
 
     @GetMapping("/movies")
@@ -33,6 +34,40 @@ class FeaturedController(
                 )
             }
             is FeaturedMoviesResult.Error -> {
+                ResponseEntity.status(503).body(
+                    FeaturedErrorResponse(
+                        error = result.code,
+                        message = result.message
+                    )
+                )
+            }
+        }
+    }
+
+    @GetMapping("/tv-series")
+    fun getFeaturedTvSeries(
+        @RequestParam(defaultValue = "day") timeWindow: String,
+        @RequestParam(defaultValue = "10") limit: Int
+    ): ResponseEntity<Any> {
+        // Validate timeWindow parameter
+        if (!TimeWindow.isValid(timeWindow)) {
+            return ResponseEntity.badRequest().body(
+                FeaturedErrorResponse(
+                    error = "INVALID_TIME_WINDOW",
+                    message = "Geçersiz zaman aralığı: $timeWindow. Geçerli değerler: day, week"
+                )
+            )
+        }
+
+        val window = TimeWindow.fromString(timeWindow)
+        
+        return when (val result = featuredTvSeriesService.getFeaturedTvSeries(window, limit)) {
+            is FeaturedTvSeriesResult.Success -> {
+                ResponseEntity.ok(
+                    FeaturedTvSeriesResponse(tvSeries = result.tvSeries)
+                )
+            }
+            is FeaturedTvSeriesResult.Error -> {
                 ResponseEntity.status(503).body(
                     FeaturedErrorResponse(
                         error = result.code,
