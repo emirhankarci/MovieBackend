@@ -1,6 +1,7 @@
 package com.emirhankarci.moviebackend.suggestion
 
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 // Response DTOs
 data class MovieSuggestion(
@@ -48,5 +49,38 @@ enum class SuggestionErrorCode {
     AI_ERROR,
     TMDB_ERROR,
     VALIDATION_ERROR,
+    REFRESH_LIMIT_EXCEEDED,
     UNKNOWN
 }
+
+
+// Refresh-related DTOs
+
+/**
+ * Information about the user's refresh usage and limits.
+ */
+data class RefreshInfo(
+    val remainingRefreshes: Int,
+    val dailyLimit: Int,
+    val resetsAt: LocalDateTime
+)
+
+/**
+ * Response for refresh suggestions endpoint.
+ */
+data class RefreshSuggestionsResponse(
+    val suggestions: List<MovieSuggestion>,
+    val generatedAt: LocalDate,
+    val metadata: SuggestionMetadata? = null,
+    val refreshInfo: RefreshInfo
+)
+
+/**
+ * Response for refresh status endpoint.
+ */
+data class RefreshStatusResponse(
+    val remainingRefreshes: Int,
+    val dailyLimit: Int,
+    val resetsAt: LocalDateTime,
+    val usedToday: Int
+)
