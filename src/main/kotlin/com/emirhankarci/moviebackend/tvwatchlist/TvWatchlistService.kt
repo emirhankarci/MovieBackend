@@ -17,34 +17,34 @@ class TvWatchlistService(
     }
 
     @Transactional
-    fun addToWatchlist(user: User, request: TvWatchlistRequest): TvWatchlistResult<TvWatchlistResponse> {
-        // Check if already in watchlist
-        if (tvWatchlistRepository.existsByUserIdAndSeriesId(user.id!!, request.seriesId)) {
-            logger.info("Series {} already in watchlist for user {}", request.seriesId, user.id)
-            return TvWatchlistResult.Error("ALREADY_IN_WATCHLIST", "Bu dizi zaten izleme listenizde")
+    fun toggleWatchlist(user: User, request: TvWatchlistRequest): TvWatchlistResult<String> {
+        val existing = tvWatchlistRepository.findByUserIdAndSeriesId(user.id!!, request.seriesId)
+        
+        return if (existing != null) {
+            tvWatchlistRepository.delete(existing)
+            logger.info("Removed series {} from watchlist for user {}", request.seriesId, user.id)
+            TvWatchlistResult.Success("Series removed from watchlist")
+        } else {
+            val watchlistEntry = TvWatchlist(
+                user = user,
+                seriesId = request.seriesId,
+                seriesName = request.seriesName,
+                posterPath = request.posterPath,
+                voteAverage = request.voteAverage?.let { BigDecimal.valueOf(it) }
+            )
+            tvWatchlistRepository.save(watchlistEntry)
+            logger.info("Added series {} to watchlist for user {}", request.seriesId, user.id)
+            TvWatchlistResult.Success("Series added to watchlist")
         }
-
-        val watchlistEntry = TvWatchlist(
-            user = user,
-            seriesId = request.seriesId,
-            seriesName = request.seriesName,
-            posterPath = request.posterPath,
-            voteAverage = request.voteAverage?.let { BigDecimal.valueOf(it) }
-        )
-
-        val saved = tvWatchlistRepository.save(watchlistEntry)
-        logger.info("Added series {} to watchlist for user {}", request.seriesId, user.id)
-
-        return TvWatchlistResult.Success(saved.toResponse())
     }
 
     @Transactional
-    fun removeFromWatchlist(user: User, seriesId: Long): TvWatchlistResult<Unit> {
+    fun removeFromWatchlist(user: User, seriesId: Long): TvWatchlistResult<String> {
         val deleted = tvWatchlistRepository.deleteByUserIdAndSeriesId(user.id!!, seriesId)
         
         return if (deleted > 0) {
             logger.info("Removed series {} from watchlist for user {}", seriesId, user.id)
-            TvWatchlistResult.Success(Unit)
+            TvWatchlistResult.Success("Series removed from watchlist")
         } else {
             logger.info("Series {} not in watchlist for user {}", seriesId, user.id)
             TvWatchlistResult.Error("NOT_IN_WATCHLIST", "Bu dizi izleme listenizde değil")

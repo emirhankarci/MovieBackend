@@ -19,14 +19,14 @@ class TvWatchlistController(
     }
 
     @PostMapping
-    fun addToWatchlist(@Valid @RequestBody request: TvWatchlistRequest): ResponseEntity<Any> {
+    fun toggleWatchlist(@Valid @RequestBody request: TvWatchlistRequest): ResponseEntity<Any> {
         val user = getCurrentUser() ?: return unauthorized()
-        logger.info("POST /api/tv/watchlist - seriesId: {}", request.seriesId)
+        logger.info("POST /api/tv/watchlist - toggle seriesId: {}", request.seriesId)
 
-        return when (val result = tvWatchlistService.addToWatchlist(user, request)) {
-            is TvWatchlistResult.Success -> ResponseEntity.ok(result.data as Any)
-            is TvWatchlistResult.Error -> ResponseEntity.status(409).body(
-                mapOf("error" to result.code, "message" to result.message) as Any
+        return when (val result = tvWatchlistService.toggleWatchlist(user, request)) {
+            is TvWatchlistResult.Success -> ResponseEntity.ok(mapOf("message" to result.data))
+            is TvWatchlistResult.Error -> ResponseEntity.badRequest().body(
+                mapOf("error" to result.code, "message" to result.message)
             )
         }
     }
@@ -37,7 +37,7 @@ class TvWatchlistController(
         logger.info("DELETE /api/tv/watchlist/{}", seriesId)
 
         return when (val result = tvWatchlistService.removeFromWatchlist(user, seriesId)) {
-            is TvWatchlistResult.Success -> ResponseEntity.noContent().build()
+            is TvWatchlistResult.Success -> ResponseEntity.ok(mapOf("message" to result.data))
             is TvWatchlistResult.Error -> ResponseEntity.status(404).body(
                 mapOf("error" to result.code, "message" to result.message) as Any
             )
