@@ -51,10 +51,11 @@ class TvWatchlistService(
         }
     }
 
-    fun getWatchlist(user: User, page: Int, size: Int, paginated: Boolean = false): TvWatchlistResult<Any> {
+    fun getWatchlist(user: User, page: Int, size: Int, paginated: Boolean = false, sortOrder: String = "desc"): TvWatchlistResult<Any> {
         return if (paginated) {
-            val pageable = PageRequest.of(page, size)
-            val pageResult = tvWatchlistRepository.findByUserIdOrderByCreatedAtDesc(user.id!!, pageable)
+            val direction = if (sortOrder.equals("asc", ignoreCase = true)) org.springframework.data.domain.Sort.Direction.ASC else org.springframework.data.domain.Sort.Direction.DESC
+            val pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by(direction, "createdAt"))
+            val pageResult = tvWatchlistRepository.findByUserId(user.id!!, pageable)
             
             val response = com.emirhankarci.moviebackend.common.PageResponse.from(pageResult) {
                 it.toResponse()

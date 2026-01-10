@@ -55,12 +55,14 @@ class TvWatchlistController(
     fun getWatchlist(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
-        @RequestParam(defaultValue = "false") paginated: Boolean
+
+        @RequestParam(defaultValue = "false") paginated: Boolean,
+        @RequestParam(defaultValue = "desc") sortOrder: String
     ): ResponseEntity<Any> {
         val user = getCurrentUser() ?: return unauthorized()
         logger.info("GET /api/tv/watchlist - page: {}, size: {}, paginated: {}", page, size, paginated)
 
-        return when (val result = tvWatchlistService.getWatchlist(user, page, size, paginated)) {
+        return when (val result = tvWatchlistService.getWatchlist(user, page, size, paginated, sortOrder)) {
             is TvWatchlistResult.Success -> ResponseEntity.ok(result.data)
             is TvWatchlistResult.Error -> ResponseEntity.status(400).body(
                 mapOf("error" to result.code, "message" to result.message) as Any

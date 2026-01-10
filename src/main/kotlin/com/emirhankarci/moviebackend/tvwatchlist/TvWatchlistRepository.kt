@@ -10,6 +10,7 @@ interface TvWatchlistRepository : JpaRepository<TvWatchlist, Long> {
     
     fun findByUserIdAndSeriesId(userId: Long, seriesId: Long): TvWatchlist?
     
+    fun findByUserId(userId: Long, pageable: Pageable): Page<TvWatchlist>
     fun findByUserIdOrderByCreatedAtDesc(userId: Long, pageable: Pageable): Page<TvWatchlist>
 
     fun findByUserIdOrderByCreatedAtDesc(userId: Long): List<TvWatchlist>
