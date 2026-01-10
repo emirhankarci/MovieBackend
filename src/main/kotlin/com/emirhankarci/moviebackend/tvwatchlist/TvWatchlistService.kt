@@ -17,7 +17,7 @@ class TvWatchlistService(
     }
 
     @Transactional
-    fun toggleWatchlist(user: User, request: TvWatchlistRequest): TvWatchlistResult<String> {
+    fun toggleWatchlist(user: User, request: TvWatchlistRequest): TvWatchlistResult<Any> {
         val existing = tvWatchlistRepository.findByUserIdAndSeriesId(user.id!!, request.seriesId)
         
         return if (existing != null) {
@@ -32,9 +32,9 @@ class TvWatchlistService(
                 posterPath = request.posterPath,
                 voteAverage = request.voteAverage?.let { BigDecimal.valueOf(it) }
             )
-            tvWatchlistRepository.save(watchlistEntry)
+            val saved = tvWatchlistRepository.save(watchlistEntry)
             logger.info("Added series {} to watchlist for user {}", request.seriesId, user.id)
-            TvWatchlistResult.Success("Series added to watchlist")
+            TvWatchlistResult.Success(saved.toResponse())
         }
     }
 

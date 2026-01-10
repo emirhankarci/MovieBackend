@@ -24,7 +24,14 @@ class TvWatchlistController(
         logger.info("POST /api/tv/watchlist - toggle seriesId: {}", request.seriesId)
 
         return when (val result = tvWatchlistService.toggleWatchlist(user, request)) {
-            is TvWatchlistResult.Success -> ResponseEntity.ok(mapOf("message" to result.data))
+            is TvWatchlistResult.Success -> {
+                val body = if (result.data is String) {
+                    mapOf("message" to result.data)
+                } else {
+                    result.data
+                }
+                ResponseEntity.ok(body)
+            }
             is TvWatchlistResult.Error -> ResponseEntity.badRequest().body(
                 mapOf("error" to result.code, "message" to result.message)
             )
