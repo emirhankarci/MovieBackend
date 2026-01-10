@@ -40,24 +40,73 @@ class ActorController(
 
     /**
      * GET /api/actors/{actorId}/filmography
-     * Oyuncunun filmografisini getirir
+     * Oyuncunun filmografisini getirir (paginated)
      * 
      * @param actorId Oyuncu ID
-     * @param limit Maksimum film sayısı (default: 20)
+     * @param page Sayfa numarası (default: 1)
+     * @param limit Sayfa başına kayıt (default: 20, max: 50)
      */
     @GetMapping("/{actorId}/filmography")
     fun getActorFilmography(
         @PathVariable actorId: Long,
+        @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(defaultValue = "20") limit: Int
-    ): ResponseEntity<ActorFilmographyResponse> {
-        logger.info("GET /api/actors/{}/filmography - limit: {}", actorId, limit)
+    ): ResponseEntity<PaginatedActorFilmographyResponse> {
+        logger.info("GET /api/actors/{}/filmography - page: {}, limit: {}", actorId, page, limit)
         
         if (actorId < 1) {
             throw TmdbApiException("Invalid actor ID", 400)
         }
         
+        val effectivePage = maxOf(1, page)
         val effectiveLimit = limit.coerceIn(1, 50)
-        val response = tmdbActorService.getActorFilmography(actorId, effectiveLimit)
+        val response = tmdbActorService.getActorFilmography(actorId, effectivePage, effectiveLimit)
+        return ResponseEntity.ok(response)
+    }
+
+    /**
+     * GET /api/actors/{actorId}/tv-credits
+     * Oyuncunun TV dizi kredilerini getirir (paginated)
+     * 
+     * @param actorId Oyuncu ID
+     * @param page Sayfa numarası (default: 1)
+     * @param limit Sayfa başına kayıt (default: 20, max: 50)
+     */
+    @GetMapping("/{actorId}/tv-credits")
+    fun getActorTvCredits(
+        @PathVariable actorId: Long,
+        @RequestParam(defaultValue = "1") page: Int,
+        @RequestParam(defaultValue = "20") limit: Int
+    ): ResponseEntity<PaginatedActorTvCreditsResponse> {
+        logger.info("GET /api/actors/{}/tv-credits - page: {}, limit: {}", actorId, page, limit)
+        
+        if (actorId < 1) {
+            throw TmdbApiException("Invalid actor ID", 400)
+        }
+        
+        val effectivePage = maxOf(1, page)
+        val effectiveLimit = limit.coerceIn(1, 50)
+        val response = tmdbActorService.getActorTvCredits(actorId, effectivePage, effectiveLimit)
+        return ResponseEntity.ok(response)
+    }
+
+    /**
+     * GET /api/actors/{actorId}/external-ids
+     * Oyuncunun sosyal medya ID'lerini getirir
+     * 
+     * @param actorId Oyuncu ID
+     */
+    @GetMapping("/{actorId}/external-ids")
+    fun getActorExternalIds(
+        @PathVariable actorId: Long
+    ): ResponseEntity<ActorExternalIdsResponse> {
+        logger.info("GET /api/actors/{}/external-ids", actorId)
+        
+        if (actorId < 1) {
+            throw TmdbApiException("Invalid actor ID", 400)
+        }
+        
+        val response = tmdbActorService.getActorExternalIds(actorId)
         return ResponseEntity.ok(response)
     }
 }

@@ -44,29 +44,98 @@ class TmdbActorService(
     }
 
     /**
-     * Oyuncunun filmografisini getirir (cache destekli)
+     * Oyuncunun filmografisini getirir (cache destekli, paginated)
      */
-    fun getActorFilmography(actorId: Long, limit: Int = 20): ActorFilmographyResponse {
+    fun getActorFilmography(actorId: Long, page: Int = 1, limit: Int = 20): PaginatedActorFilmographyResponse {
         val cacheKey = CacheKeys.Actor.filmography(actorId)
         
         // Cache'den kontrol et
-        cacheService.get(cacheKey, ActorFilmographyResponse::class.java)?.let { cached ->
+        val cached = cacheService.get(cacheKey, ActorFilmographyResponse::class.java)
+        
+        val fullResponse = if (cached != null) {
             logger.info("Actor filmography cache HIT for actorId: {}", actorId)
-            // Limit uygula
-            return cached.copy(movies = cached.movies.take(limit))
+            cached
+        } else {
+            // TMDB'den getir - önce actor detayını al (isim için)
+            logger.info("Actor filmography cache MISS for actorId: {}, fetching from TMDB", actorId)
+            val actorDetail = tmdbApiClient.getActorDetail(actorId)
+            val tmdbResponse = tmdbApiClient.getActorMovieCredits(actorId)
+            val response = mapToActorFilmographyResponse(actorId, actorDetail.name, tmdbResponse)
+            
+            // Cache'e yaz (24 saat) - tüm filmleri cache'le
+            cacheService.set(cacheKey, response, CacheKeys.TTL.LONG)
+            response
         }
         
-        // TMDB'den getir - önce actor detayını al (isim için)
-        logger.info("Actor filmography cache MISS for actorId: {}, fetching from TMDB", actorId)
-        val actorDetail = tmdbApiClient.getActorDetail(actorId)
-        val tmdbResponse = tmdbApiClient.getActorMovieCredits(actorId)
-        val response = mapToActorFilmographyResponse(actorId, actorDetail.name, tmdbResponse)
+        // Pagination uygula
+        val paginatedMovies = fullResponse.movies.paginate(page, limit)
+        val paginationInfo = PaginationInfo.calculate(fullResponse.movies.size, page, limit)
         
-        // Cache'e yaz (24 saat) - tüm filmleri cache'le
+        return PaginatedActorFilmographyResponse(
+            actorId = fullResponse.actorId,
+            actorName = fullResponse.actorName,
+            movies = paginatedMovies,
+            pagination = paginationInfo
+        )
+    }
+
+    /**
+     * Oyuncunun TV dizi kredilerini getirir (cache destekli, paginated)
+     */
+    fun getActorTvCredits(actorId: Long, page: Int = 1, limit: Int = 20): PaginatedActorTvCreditsResponse {
+        val cacheKey = CacheKeys.Actor.tvCredits(actorId)
+        
+        // Cache'den kontrol et
+        val cached = cacheService.get(cacheKey, ActorTvCreditsResponse::class.java)
+        
+        val fullResponse = if (cached != null) {
+            logger.info("Actor TV credits cache HIT for actorId: {}", actorId)
+            cached
+        } else {
+            // TMDB'den getir
+            logger.info("Actor TV credits cache MISS for actorId: {}, fetching from TMDB", actorId)
+            val actorDetail = tmdbApiClient.getActorDetail(actorId)
+            val tmdbResponse = tmdbApiClient.getActorTvCredits(actorId)
+            val response = mapToActorTvCreditsResponse(actorId, actorDetail.name, tmdbResponse)
+            
+            // Cache'e yaz (24 saat)
+            cacheService.set(cacheKey, response, CacheKeys.TTL.LONG)
+            response
+        }
+        
+        // Pagination uygula
+        val paginatedTvShows = fullResponse.tvShows.paginate(page, limit)
+        val paginationInfo = PaginationInfo.calculate(fullResponse.tvShows.size, page, limit)
+        
+        return PaginatedActorTvCreditsResponse(
+            actorId = fullResponse.actorId,
+            actorName = fullResponse.actorName,
+            tvShows = paginatedTvShows,
+            pagination = paginationInfo
+        )
+    }
+
+    /**
+     * Oyuncunun sosyal medya ID'lerini getirir (cache destekli)
+     */
+    fun getActorExternalIds(actorId: Long): ActorExternalIdsResponse {
+        val cacheKey = CacheKeys.Actor.externalIds(actorId)
+        
+        // Cache'den kontrol et
+        cacheService.get(cacheKey, ActorExternalIdsResponse::class.java)?.let {
+            logger.info("Actor external IDs cache HIT for actorId: {}", actorId)
+            return it
+        }
+        
+        // TMDB'den getir
+        logger.info("Actor external IDs cache MISS for actorId: {}, fetching from TMDB", actorId)
+        val tmdbResponse = tmdbApiClient.getActorExternalIds(actorId)
+        val response = mapToActorExternalIdsResponse(actorId, tmdbResponse)
+        
+        // Cache'e yaz (24 saat)
         cacheService.set(cacheKey, response, CacheKeys.TTL.LONG)
         
-        // Limit uygula
-        return response.copy(movies = response.movies.take(limit))
+        return response
     }
 
     // ==================== Mapping Functions ====================
@@ -107,6 +176,46 @@ class TmdbActorService(
             actorId = actorId,
             actorName = actorName,
             movies = sortedMovies
+        )
+    }
+
+    private fun mapToActorTvCreditsResponse(
+        actorId: Long,
+        actorName: String,
+        tmdb: TmdbActorTvCreditsResponse
+    ): ActorTvCreditsResponse {
+        val sortedTvShows = tmdb.cast
+            .filter { it.first_air_date != null && it.first_air_date.isNotBlank() }
+            .sortedByDescending { it.first_air_date }
+            .map { credit ->
+                ActorTvCreditDto(
+                    id = credit.id,
+                    name = credit.name,
+                    character = credit.character,
+                    posterPath = tmdbApiClient.buildPosterUrl(credit.poster_path),
+                    firstAirDate = credit.first_air_date,
+                    voteAverage = credit.vote_average,
+                    episodeCount = credit.episode_count
+                )
+            }
+        
+        return ActorTvCreditsResponse(
+            actorId = actorId,
+            actorName = actorName,
+            tvShows = sortedTvShows
+        )
+    }
+
+    private fun mapToActorExternalIdsResponse(
+        actorId: Long,
+        tmdb: TmdbActorExternalIdsResponse
+    ): ActorExternalIdsResponse {
+        return ActorExternalIdsResponse(
+            actorId = actorId,
+            instagramId = tmdb.instagram_id,
+            twitterId = tmdb.twitter_id,
+            instagramUrl = tmdb.instagram_id?.let { "https://instagram.com/$it" },
+            twitterUrl = tmdb.twitter_id?.let { "https://twitter.com/$it" }
         )
     }
 }

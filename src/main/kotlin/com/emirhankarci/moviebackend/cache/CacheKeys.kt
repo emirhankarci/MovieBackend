@@ -68,6 +68,12 @@ object CacheKeys {
         /** actor:{actorId}:filmography - Actor's movies */
         fun filmography(actorId: Long): String = "$PREFIX:$actorId:filmography"
         
+        /** actor:{actorId}:tv-credits - Actor's TV shows */
+        fun tvCredits(actorId: Long): String = "$PREFIX:$actorId:tv-credits"
+        
+        /** actor:{actorId}:external-ids - Actor's social media IDs */
+        fun externalIds(actorId: Long): String = "$PREFIX:$actorId:external-ids"
+        
         /** Pattern for all actor keys */
         const val PATTERN_ALL = "$PREFIX:*"
     }

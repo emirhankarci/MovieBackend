@@ -136,3 +136,30 @@ data class TmdbReleaseDate(
     val release_date: String?,
     val type: Int?
 )
+
+
+// ==================== Actor TV Credits ====================
+
+data class TmdbActorTvCreditsResponse(
+    val id: Long,
+    val cast: List<TmdbActorTvCredit>
+)
+
+data class TmdbActorTvCredit(
+    val id: Long,
+    val name: String,
+    val character: String?,
+    val poster_path: String?,
+    val first_air_date: String?,
+    val vote_average: Double,
+    val vote_count: Int?,
+    val episode_count: Int?
+)
+
+// ==================== Actor External IDs ====================
+
+data class TmdbActorExternalIdsResponse(
+    val id: Long,
+    val instagram_id: String?,
+    val twitter_id: String?
+)

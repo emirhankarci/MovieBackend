@@ -17,3 +17,13 @@ data class ActorFilmographyResponse(
     val actorName: String,
     val movies: List<ActorMovieCreditDto>
 )
+
+/**
+ * Paginated Actor Filmography Response
+ */
+data class PaginatedActorFilmographyResponse(
+    val actorId: Long,
+    val actorName: String,
+    val movies: List<ActorMovieCreditDto>,
+    val pagination: PaginationInfo
+)

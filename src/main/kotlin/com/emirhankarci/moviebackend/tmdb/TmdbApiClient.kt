@@ -187,6 +187,28 @@ class TmdbApiClient(
     }
 
     /**
+     * Oyuncunun TV dizi kredilerini getirir
+     */
+    fun getActorTvCredits(actorId: Long, language: String = "tr-TR"): TmdbActorTvCreditsResponse {
+        val url = "$BASE_URL/person/$actorId/tv_credits?api_key=$apiKey&language=$language"
+        logger.debug("Fetching actor TV credits: actorId={}, language={}", actorId, language)
+        
+        return executeRequest(url, TmdbActorTvCreditsResponse::class.java)
+            ?: throw TmdbApiException("TV credits not found for actor: $actorId", HttpStatus.NOT_FOUND.value())
+    }
+
+    /**
+     * Oyuncunun sosyal medya ID'lerini getirir (Instagram, Twitter)
+     */
+    fun getActorExternalIds(actorId: Long): TmdbActorExternalIdsResponse {
+        val url = "$BASE_URL/person/$actorId/external_ids?api_key=$apiKey"
+        logger.debug("Fetching actor external IDs: actorId={}", actorId)
+        
+        return executeRequest(url, TmdbActorExternalIdsResponse::class.java)
+            ?: throw TmdbApiException("External IDs not found for actor: $actorId", HttpStatus.NOT_FOUND.value())
+    }
+
+    /**
      * Poster path'i tam URL'e çevirir
      */
     fun buildPosterUrl(path: String?): String? {
