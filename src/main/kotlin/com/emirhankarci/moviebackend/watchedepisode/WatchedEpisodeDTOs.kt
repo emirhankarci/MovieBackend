@@ -85,7 +85,9 @@ data class WatchedSeriesDto(
     val seriesName: String,
     val lastWatchedAt: LocalDateTime,
     val posterPath: String? = null,
-    val backdropPath: String? = null
+    val backdropPath: String? = null,
+    val voteAverage: Double? = null,
+    val userRating: Double? = null
 )
 
 // Result wrapper

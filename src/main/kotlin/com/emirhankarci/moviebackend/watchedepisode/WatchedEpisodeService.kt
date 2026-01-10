@@ -6,12 +6,14 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 import com.emirhankarci.moviebackend.tvseries.TvSeriesService
+import com.emirhankarci.moviebackend.tvrating.TvSeriesRatingRepository
 import kotlinx.coroutines.*
 
 @Service
 class WatchedEpisodeService(
     private val watchedEpisodeRepository: WatchedEpisodeRepository,
-    private val tvSeriesService: TvSeriesService
+    private val tvSeriesService: TvSeriesService,
+    private val tvSeriesRatingRepository: TvSeriesRatingRepository
 ) {
     companion object {
         private val logger = LoggerFactory.getLogger(WatchedEpisodeService::class.java)
@@ -185,12 +187,16 @@ class WatchedEpisodeService(
                 async {
                     try {
                         val details = tvSeriesService.getSeriesDetail(summary.seriesId)
+                        val userRating = tvSeriesRatingRepository.findByUserIdAndSeriesId(user.id!!, summary.seriesId)?.rating
+
                         WatchedSeriesDto(
                             seriesId = summary.seriesId,
                             seriesName = summary.seriesName,
                             lastWatchedAt = summary.lastWatchedAt,
                             posterPath = details.posterPath,
-                            backdropPath = details.backdropPath
+                            backdropPath = details.backdropPath,
+                            voteAverage = details.voteAverage,
+                            userRating = userRating?.toDouble()
                         )
                     } catch (e: Exception) {
                         logger.error("Failed to fetch details for series {}", summary.seriesId, e)
