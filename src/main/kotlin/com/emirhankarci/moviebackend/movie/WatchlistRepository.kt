@@ -11,6 +11,7 @@ interface WatchlistRepository : JpaRepository<Watchlist, Long> {
     fun findByUserId(userId: Long): List<Watchlist>
     fun findByUserIdAndMovieId(userId: Long, movieId: Long): Optional<Watchlist>
     fun existsByUserIdAndMovieId(userId: Long, movieId: Long): Boolean
+    fun findByUserId(userId: Long, pageable: Pageable): Page<Watchlist>
     fun findByUserIdOrderByCreatedAtDesc(userId: Long, pageable: Pageable): Page<Watchlist>
     fun findByUserIdOrderByCreatedAtDesc(userId: Long): List<Watchlist>
 }

@@ -26,12 +26,13 @@ class WatchlistController(
     fun getWatchlist(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
-        @RequestParam(defaultValue = "false") paginated: Boolean
+        @RequestParam(defaultValue = "false") paginated: Boolean,
+        @RequestParam(defaultValue = "desc") sortOrder: String
     ): ResponseEntity<Any> {
         val username = SecurityContextHolder.getContext().authentication?.name
             ?: return ResponseEntity.status(401).body(mapOf("message" to "Unauthorized"))
         
-        return when (val result = watchlistService.getUserWatchlist(username, page, size, paginated)) {
+        return when (val result = watchlistService.getUserWatchlist(username, page, size, paginated, sortOrder)) {
             is WatchlistResult.Success -> ResponseEntity.ok(result.data)
             is WatchlistResult.Error -> ResponseEntity.badRequest().body(mapOf("message" to result.message))
         }

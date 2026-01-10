@@ -74,14 +74,16 @@ class WatchlistService(
         username: String,
         page: Int = 0,
         size: Int = 20,
-        paginated: Boolean = false
+        paginated: Boolean = false,
+        sortOrder: String = "desc"
     ): WatchlistResult<Any> {
         val user = userRepository.findByUsername(username)
             ?: return WatchlistResult.Error("User not found!")
 
         return if (paginated) {
-            val pageable = PageRequest.of(page, size)
-            val pageResult = watchlistRepository.findByUserIdOrderByCreatedAtDesc(user.id!!, pageable)
+            val direction = if (sortOrder.equals("asc", ignoreCase = true)) org.springframework.data.domain.Sort.Direction.ASC else org.springframework.data.domain.Sort.Direction.DESC
+            val pageable = PageRequest.of(page, size, org.springframework.data.domain.Sort.by(direction, "createdAt"))
+            val pageResult = watchlistRepository.findByUserId(user.id!!, pageable)
             
             val response = PageResponse.from(pageResult) {
                 WatchlistResponse(
@@ -94,7 +96,7 @@ class WatchlistService(
                 )
             }
             
-            logger.debug("Returning paginated watchlist for user {}: page {}, size {}", username, page, size)
+            logger.debug("Returning paginated watchlist for user {}: page {}, size {}, sort {}", username, page, size, sortOrder)
             WatchlistResult.Success(response)
         } else {
             val watchlist = watchlistRepository.findByUserIdOrderByCreatedAtDesc(user.id!!)
