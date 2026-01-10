@@ -177,9 +177,13 @@ class WatchedEpisodeService(
     }
 
 
-    fun getWatchedSeries(user: User, page: Int, size: Int): com.emirhankarci.moviebackend.common.PageResponse<WatchedSeriesDto> {
+    fun getWatchedSeries(user: User, page: Int, size: Int, sortOrder: String = "desc"): com.emirhankarci.moviebackend.common.PageResponse<WatchedSeriesDto> {
         val pageable = org.springframework.data.domain.PageRequest.of(page, size)
-        val watchedSeriesPage = watchedEpisodeRepository.findWatchedSeriesByUserId(user.id!!, pageable)
+        val watchedSeriesPage = if (sortOrder.equals("asc", ignoreCase = true)) {
+            watchedEpisodeRepository.findWatchedSeriesByUserIdOrderByLastWatchedAtAsc(user.id!!, pageable)
+        } else {
+            watchedEpisodeRepository.findWatchedSeriesByUserIdOrderByLastWatchedAtDesc(user.id!!, pageable)
+        }
         
         // Fetch details for all series in the page in parallel to get images
         val enrichedContent = runBlocking(Dispatchers.IO) {

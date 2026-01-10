@@ -20,12 +20,13 @@ class WatchedEpisodeController(
     @GetMapping
     fun getWatchedSeries(
         @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "20") size: Int
+        @RequestParam(defaultValue = "20") size: Int,
+        @RequestParam(defaultValue = "desc") sortOrder: String
     ): ResponseEntity<Any> {
         val user = getCurrentUser() ?: return unauthorized()
         logger.info("GET /api/tv/watched - page: {}", page)
 
-        val response = watchedEpisodeService.getWatchedSeries(user, page, size)
+        val response = watchedEpisodeService.getWatchedSeries(user, page, size, sortOrder)
         return ResponseEntity.ok(response)
     }
 

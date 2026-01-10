@@ -98,7 +98,7 @@ class TvUserProfileAggregator(
     private fun collectWatchedTvSeries(userId: Long): List<WatchedTvSeriesInfo> {
         // Get watched series summaries
         val pageable = PageRequest.of(0, MAX_WATCHED_SERIES)
-        val watchedSeries = watchedEpisodeRepository.findWatchedSeriesByUserId(userId, pageable)
+        val watchedSeries = watchedEpisodeRepository.findWatchedSeriesByUserIdOrderByLastWatchedAtDesc(userId, pageable)
 
         return watchedSeries.content.map { summary ->
             val episodeCount = watchedEpisodeRepository.countByUserIdAndSeriesId(userId, summary.seriesId)
