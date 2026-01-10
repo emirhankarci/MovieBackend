@@ -90,7 +90,8 @@ class TvCollectionController(
         logger.info("POST /api/tv/collections/{}/series - seriesId: {}", id, request.seriesId)
 
         return when (val result = tvCollectionService.addSeriesToCollection(user, id, request)) {
-            is TvCollectionResult.Success -> ResponseEntity.status(HttpStatus.CREATED).body(result.data as Any)
+            is TvCollectionResult.Success -> ResponseEntity.status(HttpStatus.CREATED)
+                .body(mapOf("message" to "Series added to collection successfully") as Any)
             is TvCollectionResult.Error -> {
                 val status = when (result.code) {
                     "COLLECTION_NOT_FOUND" -> HttpStatus.NOT_FOUND
@@ -111,7 +112,7 @@ class TvCollectionController(
         logger.info("DELETE /api/tv/collections/{}/series/{}", id, seriesId)
 
         return when (val result = tvCollectionService.removeSeriesFromCollection(user, id, seriesId)) {
-            is TvCollectionResult.Success -> ResponseEntity.noContent().build()
+            is TvCollectionResult.Success -> ResponseEntity.ok(mapOf("message" to "Series removed from collection successfully") as Any)
             is TvCollectionResult.Error -> {
                 val status = when (result.code) {
                     "COLLECTION_NOT_FOUND", "SERIES_NOT_IN_COLLECTION" -> HttpStatus.NOT_FOUND
